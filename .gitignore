@@ -1,3 +1,9 @@
 CSpack.xcworkspace/contents.xcworkspacedata
 CSpack.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 CSpack.xcworkspace/xcuserdata/jchluba.xcuserdatad/UserInterfaceState.xcuserstate
+CSpack.xcworkspace/xcuserdata/jchluba.xcuserdatad/IDEFindNavigatorScopes.plist
+CSpack.xcworkspace/xcuserdata/jchluba.xcuserdatad/xcdebugger/Breakpoints_v2.xcbkptlist
+
+*.o
+*.a
+CSpack_main

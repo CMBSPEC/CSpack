@@ -1,0 +1,112 @@
+#===============================================================================
+# choose c++ compiler
+#===============================================================================
+CC= g++
+#CC= g++-mp-6
+
+#===============================================================================
+# compiler flags
+#===============================================================================
+CXXFLAGS = -Wall -pedantic -O2
+#CXXFLAGS = -Wall -pedantic -pg -O2
+#CXXFLAGS = -Wall -pedantic -g -O1
+
+#===============================================================================
+# linker flags
+#===============================================================================
+LXXFLAGS =
+#LXXFLAGS = -pg
+
+#===============================================================================
+# GSL lib
+#===============================================================================
+GSL          = gsl
+GSL_INC_PATH = /usr/local/include/
+GSL_LIB_PATH = /usr/local/lib/
+LIBSGSL = -L$(GSL_LIB_PATH) -l$(GSL) -lgslcblas
+
+#===============================================================================
+# (partial) openmp support
+#===============================================================================
+# If openmp support should be used uncomment next line and set the subsequent
+# definitions accordingly. [JC not working yet...]
+#===============================================================================
+#USE_OPENMP   = -D OPENMP_ACTIVATED
+
+ifeq ($(USE_OPENMP),-D OPENMP_ACTIVATED)
+CXXFLAGS    += -fopenmp
+LIBOPENMI    = -lgomp
+endif
+
+
+#===============================================================================
+#===============================================================================
+#===============================================================================
+#
+# below normally no changes should be necessary...
+#
+#===============================================================================
+#===============================================================================
+#===============================================================================
+
+
+#===============================================================================
+# passing the CosmoRec path on to the compiler
+#===============================================================================
+CXXFLAGSLOC = $(CXXFLAGS) $(USE_OPENMP)
+
+#===============================================================================
+# Required external libs
+#===============================================================================
+LIBS    = -L/usr/local/lib/ -L/opt/local/lib/ \
+           $(LIBSRF) $(LIBSGSL) $(LIBOPENMI) -lm
+
+#===============================================================================
+# object files
+#===============================================================================
+OBJSDEV = $(TOOLS_DIR)/Simple_routines/routines.o \
+	   $(TOOLS_DIR)/Simple_routines/parser.o \
+	   $(TOOLS_DIR)/Integration/Patterson.o
+
+OBJSCS = ./CSpack/CSpack_functions.o \
+        ./CSpack/CSpack_kernels.o \
+        ./CSpack/CSpack_kernel_moments.o
+
+OBJS = $(OBJSDEV) $(OBJSCS)
+
+#===============================================================================
+# program 
+#===============================================================================
+
+all: CSpacklib CSpackmain
+
+lib: CSpacklib
+
+bin: CSpacklib CSpackmain
+
+CSpackmain: CSpacklib CSpack_main.o
+	   	@echo "\n Linking CSpack_main binary\n"
+	   	$(CC) $(LXXFLAGS) CSpack_main.o -L. -lCSpack $(LIBS) -o CSpack_main
+
+CSpacklib: $(OBJS)
+		@echo "\n Creating CSpack library\n"
+		ar rvs ./libCSpack.a $?
+		@echo "\n done...\n";
+
+#===============================================================================
+# dependencies
+#===============================================================================
+
+#===============================================================================
+# rules
+#===============================================================================
+
+INC_PATH = -I./CSpack -I$(TOOLS_DIR)/Definitions \
+	   -I$(TOOLS_DIR)/Integration \
+	   -I$(TOOLS_DIR)/Simple_routines \
+       -I/usr/local/include/ -I/opt/local/include/ \
+       -I$(GSL_INC_PATH) -I.
+
+.cpp.o:
+	@echo "Producing object-file $@"
+	$(CC) $(CXXFLAGSLOC) $(INC_PATH) -c $< -o $@
