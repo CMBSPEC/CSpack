@@ -8,7 +8,7 @@
 #ifndef CSpack_functions_hpp
 #define CSpack_functions_hpp
 
-namespace CSpack_functions{
+namespace CSpack_functions {
 
 //==================================================================================================
 // Common simple functions

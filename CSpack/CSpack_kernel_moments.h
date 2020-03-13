@@ -12,7 +12,7 @@
 
 using namespace std;
 
-namespace CSpack_kernel_moments{
+namespace CSpack_kernel_moments {
 
 //==================================================================================================
 //  MOMENT

@@ -34,7 +34,7 @@ double G_func(double omega, double omega0, double p0, double om0star, double oms
     return common_fact*kappa*(fact1+2.0*fact2+(1.0+omega*omega0)*fact3);
 }
 
-namespace CSpack_kernels{
+namespace CSpack_kernels {
 
 //==================================================================================================
 // EXACT KERNEL

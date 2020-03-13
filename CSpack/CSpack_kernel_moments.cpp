@@ -16,7 +16,7 @@ using namespace std;
 using namespace CSpack_functions;
 using namespace CSpack_kernels;
 
-namespace CSpack_kernel_moments{
+namespace CSpack_kernel_moments {
 
 //==================================================================================================
 //

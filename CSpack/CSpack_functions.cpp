@@ -18,7 +18,7 @@
 
 using namespace std;
 
-namespace CSpack_functions{
+namespace CSpack_functions {
 
 //==================================================================================================
 // Common simple functions

@@ -13,13 +13,13 @@ using namespace std;
 using namespace CSpack_functions;
 using namespace CSpack_kernels;
 
-namespace CSpack_scattering_matrix{
+namespace CSpack_scattering_matrix {
 
 //==================================================================================================
 // Routines for scattering matrix setups
 //--------------------------------------------------------------------------------------------------
 // inputs:
-// xarr  : contains frequency grid points x=hnu/kTe = omega/theta
+// xarr  : contains frequency grid points x=h nu/kTe = omega/theta
 // theta : kTe/mc^2
 // Int_wi: Integral weight factors to turn int f(x) dx == sum Int_wi f(xi)
 //

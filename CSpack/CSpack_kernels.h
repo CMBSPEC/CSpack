@@ -12,7 +12,7 @@
 
 using namespace std;
 
-namespace CSpack_kernels{
+namespace CSpack_kernels {
 
 //==================================================================================================
 // KERNELS
