@@ -8,8 +8,7 @@
 #include "routines.h"
 #include "Patterson.h"
 
-#include "CSpack_functions.h"
-#include "CSpack_kernels.h"
+#include "CSpack.h"
 
 using namespace std;
 using namespace CSpack_functions;

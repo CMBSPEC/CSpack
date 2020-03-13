@@ -51,6 +51,12 @@ double alphap(double omega0, double p0);
 double alpham(double omega0, double p0);
 double f_moment(double omega0, double p0);
 
+//==================================================================================================
+// spectral functions for use with blackbody radiation
+//==================================================================================================
+double one_minus_exp_mx(double x);                   // == 1-exp(-x)
+double nbb_func(double x);                           // == 1/(exp(x)-1)
+
 }
 
 #endif

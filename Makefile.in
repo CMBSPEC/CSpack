@@ -70,7 +70,8 @@ OBJSDEV = $(TOOLS_DIR)/Simple_routines/routines.o \
 
 OBJSCS = ./CSpack/CSpack_functions.o \
         ./CSpack/CSpack_kernels.o \
-        ./CSpack/CSpack_kernel_moments.o
+        ./CSpack/CSpack_kernel_moments.o \
+        ./CSpack/CSpack_scattering_matrix.o
 
 OBJS = $(OBJSDEV) $(OBJSCS)
 
