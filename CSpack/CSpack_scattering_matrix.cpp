@@ -32,12 +32,12 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                vector<vector<double> > &Msc,
                                double epsilon)
 {
-    cout << "compute_scattering_matrix_thresh :: setting up scattering matrix." << endl;
+    cout << " compute_scattering_matrix_thresh :: setting up scattering matrix." << endl;
 
     int npx=xarr.size();
 
     // create matrix
-    if(Msc.size()!=npx)
+    if((int)Msc.size()!=npx)
     {
         Msc.clear();
         vector<double> zeros(npx, 0.0);
@@ -80,7 +80,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         }
     }
 
-    cout << "compute_scattering_matrix_thresh :: done." << endl;
+    cout << " compute_scattering_matrix_thresh :: done." << endl;
 }
 
 //==================================================================================================
@@ -103,7 +103,7 @@ void compute_sigma_tot(const vector<double> &xarr,
 {
     int npx=xarr.size();
 
-    if(sigarr.size()!=npx) sigarr.resize(npx);
+    if((int)sigarr.size()!=npx) sigarr.resize(npx);
 
 #ifdef OPENMP_ACTIVATED
 #pragma omp parallel for default(shared) schedule(dynamic)
@@ -114,7 +114,6 @@ void compute_sigma_tot(const vector<double> &xarr,
 
         for(int j=0; j<npx; j++)
         {
-            // TODO: check the stimulated scattering factor again...
             double stim=(add_stim ? one_minus_exp_mx(xarr[i]*Te_Tg)/one_minus_exp_mx(xarr[j]*Te_Tg) : 1.0);
             sigarr[i]+= Msc[i][j] * stim;
         }

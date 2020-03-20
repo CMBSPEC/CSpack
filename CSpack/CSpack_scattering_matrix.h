@@ -29,7 +29,7 @@ namespace CSpack_scattering_matrix {
 void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                const vector<double> &Int_wi,
                                vector<vector<double> > &Msc,
-                               double epsilon=1.0e-40)
+                               double epsilon=1.0e-40);
 
 //==================================================================================================
 // total cross section
@@ -47,7 +47,7 @@ void compute_sigma_tot(const vector<double> &xarr,
                        const vector<vector<double> > &Msc,
                        vector<double> &sigarr,
                        bool add_stim=0,
-                       double Te_Tg=1.0)
+                       double Te_Tg=1.0);
 
 }
 

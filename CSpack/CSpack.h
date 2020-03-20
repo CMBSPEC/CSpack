@@ -15,6 +15,7 @@ using namespace std;
 #include "CSpack_functions.h"
 #include "CSpack_kernels.h"
 #include "CSpack_kernel_moments.h"
+#include "CSpack_scattering_matrix.h"
 
 #endif
 
