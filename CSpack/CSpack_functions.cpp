@@ -26,8 +26,11 @@ namespace CSpack_functions {
 double gamma_f(double p0)
 { return sqrt(pow(p0, 2)+1.0); }
 
-double pfunc(double g0)
-{ return sqrt(pow(g0, 2)-1.0); }
+double pfunc(double g0) // sqrt(g^2-1)
+{
+    double Dg=g0-1.0;
+    return sqrt(Dg*(2.0+Dg));
+}
 
 //==================================================================================================
 double gamma_sc(double omega0, double p0, double omega)

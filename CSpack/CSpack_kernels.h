@@ -17,6 +17,8 @@ namespace CSpack_kernels {
 //==================================================================================================
 // KERNELS
 //==================================================================================================
+typedef double (*kernel_ptr)(double, double, double);
+
 double kernel_exact(double omega0, double p0, double omega);
 double kernel_recoil(double omega0, double p0, double omega);
 double kernel_doppler(double omega0, double p0, double omega);
@@ -26,6 +28,8 @@ double kernel_ur(double omega0, double p0, double omega);
 //type == 'exact', 'recoil', 'doppler', 'ur'
 //--------------------------------------------------------------------------------------------------
 double kernel_all(double omega0, double p0, double omega, string type);
+
+kernel_ptr Get_kernel_pointer(string type, string calling_func);
 
 //==================================================================================================
 //  THERMALLY AVERAGED KERNELS

@@ -108,17 +108,20 @@ double kernel_ur(double omega0, double p0, double omega)
     return kerval;
 }
 
+kernel_ptr Get_kernel_pointer(string type, string calling_func)
+{
+    if(type=="exact") return kernel_exact;
+    else if(type=="recoil") return kernel_recoil;
+    else if(type=="doppler") return kernel_doppler;
+    else if(type=="ur") return kernel_ur;
+    else throw_error(calling_func, "choose type 'exact', 'recoil', 'doppler', 'ur'", 1);
+
+    return NULL;
+}
+
 double kernel_all(double omega0, double p0, double omega, string type)
 {
-    double (*kernel_ptr)(double omega0, double p0, double omega)=NULL;
-
-    // do mapping of function pointers outside of integral
-    if(type=="exact"){ kernel_ptr = kernel_exact; }
-    else if(type=="recoil"){ kernel_ptr = kernel_recoil; }
-    else if(type=="doppler"){ kernel_ptr = kernel_doppler; }
-    else if(type=="ur"){ kernel_ptr = kernel_ur; }
-    else throw_error("kernel_all", "choose type 'exact', 'recoil', 'doppler', 'ur'", 1);
-
+    double (*kernel_ptr)(double omega0, double p0, double omega)=Get_kernel_pointer(type, "kernel_all");
     return kernel_ptr(omega0, p0, omega);
 }
 
@@ -199,13 +202,7 @@ double thermal_kernel_all(double omega0, double omega, double theta, string type
  
     Integration_data d;
     d.omega=omega; d.omega0=omega0; d.theta=theta;
-    
-    // do mapping of function pointers outside of integral
-    if(type=="exact"){ d.kernel_ptr = kernel_exact; }
-    else if(type=="recoil"){ d.kernel_ptr = kernel_recoil; }
-    else if(type=="doppler"){ d.kernel_ptr = kernel_doppler; }
-    else if(type=="ur"){ d.kernel_ptr = kernel_ur; }
-    else throw_error("thermal_kernel_all", "choose type 'exact', 'recoil', 'doppler', 'ur'", 1);
+    d.kernel_ptr=Get_kernel_pointer(type, "thermal_kernel_all");
 
     double a, b;
     if (type=="doppler") a = lower_limit_dop(omega0, omega);
