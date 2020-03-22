@@ -12,3 +12,5 @@ outputs/electron_losses.dat
 outputs/electron_losses_corrected.agr
 outputs/photon_losses.agr
 outputs/photon_losses.dat
+outputs/CS_removal_DC_addition.dat
+outputs/N_CS_removal_DC_addition.dat

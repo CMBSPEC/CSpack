@@ -137,6 +137,20 @@ double integrand_Ng_removal_o0(double lgomega0, void *q)
 }
 
 //==================================================================================================
+double dng_dtau_removal(double x, double thg, double p0, string type, bool stim)
+{
+    Integration_2Ddata_losses d;
+    d.thg=thg;
+    d.p0=p0;
+    d.use_stim=stim;
+    d.kernel_ptr=Get_kernel_pointer(type, "Ng_removal");
+
+    double omega0=x*thg;
+
+    return integrand_Ng_removal_o0(log(omega0), &d)/pow(omega0, 3);
+}
+
+//==================================================================================================
 double Ng_removal(double thg, double p0, string type, bool stim)
 {
     Integration_2Ddata_losses d;
@@ -153,6 +167,23 @@ double Ng_removal(double thg, double p0, string type, bool stim)
     double N_CMB=pow(thg, 3)*G21_Int_pl;
     return r/N_CMB;
 }
+
+//==================================================================================================
+double dng_dtau_DC_add(double x, double thg, double p0, string type, bool stim)
+{
+    double fstim=(stim ? 1.0/one_minus_exp_mx(x) : 1.0);
+    return 4.0*const_alpha/(3.0*PI)*(1.0+2.0*p0*p0)*24.8863*thg*fstim/pow(x, 3);
+}
+
+double Ng_DC_add(double thg, double p0, string type, bool stim)
+{
+    double xmin=0.001, xmax=200.0;
+    double fstim=(stim ? log(xmax/xmin)+1.0/xmin-1.0/xmax : log(xmax/xmin));
+
+    double r=4.0*const_alpha/(3.0*PI)*(1.0+2.0*p0*p0)*24.8863*thg*fstim;
+    return r/G21_Int_pl;
+}
+
 
 }
 

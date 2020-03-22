@@ -27,6 +27,11 @@ double electron_cooling(double thg, double p0, string type, bool stim=0);
 double photon_gains(double thg, double p0, string type, bool stim=0);
 double photon_gains_approx(double thg, double p0);
 
+double dng_dtau_removal(double x, double thg, double p0, string type, bool stim);
+double dng_dtau_DC_add(double x, double thg, double p0, string type, bool stim);
+double Ng_removal(double thg, double p0, string type, bool stim);
+double Ng_DC_add(double thg, double p0, string type, bool stim);
+
 }
 
 #endif
