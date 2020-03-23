@@ -148,14 +148,14 @@ double lower_limit(double omega0, double omega)
     else if(omega > omega0 && omega0 <= 0.5)
     {
         if(omega <= omega0/(1.0-2.0*omega0))
-            lim = sqrt(pow(omega-omega0+1.0, 2)-1.0);
+            lim = sqrt( (omega-omega0)*(omega-omega0+2.0) );
 
         else lim = (omega-omega0)/2.0*sqrt((1.0+omega*omega0)/(omega*omega0)) + (omega0+omega)/2.0;
     }
 
     else if(omega > omega0 && omega0 > 0.5)
     {
-        lim = sqrt(pow(omega-omega0+1.0, 2)-1.0);
+        lim = sqrt( (omega-omega0)*(omega-omega0+2.0) );
     }
 
     return lim;

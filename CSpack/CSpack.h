@@ -9,6 +9,7 @@
 #define cspack_h
 
 #include <string>
+#include <vector>
 
 using namespace std;
 

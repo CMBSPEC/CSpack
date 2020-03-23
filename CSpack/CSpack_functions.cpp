@@ -43,15 +43,12 @@ double pfunc_sc(double omega0, double p0, double omega)
 // Critical frequencies
 //==================================================================================================
 double omegacrit(double omega0, double p0)
-//{ return omega0*(gamma_f(p0) + p0)/(gamma_f(p0) - p0 + 2.0*omega0); }
 { return omega0*pow(gamma_f(p0) + p0, 2)/(1.0 + 2.0*omega0*(gamma_f(p0) + p0)); }
 
 double omegamin(double omega0, double p0)
-//{ return omega0*(gamma_f(p0) - p0)/(gamma_f(p0) + p0 + 2.0*omega0); }
 { return omega0/(gamma_f(p0) + p0)/(gamma_f(p0) + p0 + 2.0*omega0); }
 
 double omegatot(double omega0, double p0)
-//{ return gamma_f(p0) + omega0 - 1.0; }
 { return p0*p0/(1.0+gamma_f(p0)) + omega0; }
 
 double omegamax(double omega0, double p0)
@@ -65,11 +62,9 @@ double omegamax(double omega0, double p0)
 // Functions for the Kernel
 //==================================================================================================
 double lambda_p(double p0, double omega0)
-//{ return pow((gamma_f(p0)+omega0),2)-1.0; }
 { return p0*p0+2.0*gamma_f(p0)*omega0+omega0*omega0; }
 
 double lambda_m(double p0, double omega)
-//{ return pow((gamma_f(p0)-omega),2)-1.0; }
 { return p0*p0-2.0*gamma_f(p0)*omega+omega*omega; }
 
 //==================================================================================================
@@ -135,11 +130,9 @@ double alphap(double omega0, double p0)
 { return  1.0 + 2.0*(gamma_f(p0) + p0)*omega0; }
 
 double alpham(double omega0, double p0)
-//{ return  1.0 + 2.0*(gamma_f(p0) - p0)*omega0; }
 { return  1.0 + 2.0/(gamma_f(p0) + p0)*omega0; }
 
 double f_moment(double omega0, double p0)
-//{ return gsl_sf_dilog(1.0 - alphap(omega0, p0)) - gsl_sf_dilog(1.0 - alpham(omega0, p0)); }
 { return gsl_sf_dilog(-2.0*(gamma_f(p0)+p0)*omega0)-gsl_sf_dilog(-2.0/(gamma_f(p0)+p0)*omega0); }
 
 //==================================================================================================
@@ -150,7 +143,7 @@ double one_minus_exp_mx(double x) // == 1 - exp(-x)
     //==============================================================================================
     // for small x use series expansion for 1-exp(-x)
     //==============================================================================================
-    if(x<=0.001) return x*(1.0+(-0.5+(1.0/6+(-1.0/24+(1.0/120-1.0/720*x)*x)*x)*x)*x);
+    if(x<=0.001) return x*(1.0+(-0.5+(1.0/6.0+(-1.0/24.0+(1.0/120.0-1.0/720.0*x)*x)*x)*x)*x);
     else return 1.0-exp(-x);
 }
 

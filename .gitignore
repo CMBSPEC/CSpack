@@ -14,3 +14,17 @@ outputs/photon_losses.agr
 outputs/photon_losses.dat
 outputs/CS_removal_DC_addition.dat
 outputs/N_CS_removal_DC_addition.dat
+outputs/DI_CS_DC.pdf
+outputs/DN_CS_DC.agr
+outputs/DN_CS_DC.pdf
+outputs/DN_CS_DC_corrected.agr
+outputs/DN_CS_DC_corrected.pdf
+outputs/DN_CS_DC_exact.agr
+outputs/DN_CS_DC_exact.pdf
+outputs/DN_CS_DC_exact_net.pdf
+outputs/N_CS_removal_DC_addition_approx.dat
+outputs/N_CS_removal_DC_addition_exact.dat
+outputs/N_CS_removal_DC_addition_no_stim.dat
+outputs/dI_CS_DC.agr
+outputs/electron_losses.pdf
+outputs/photon_losses.pdf
