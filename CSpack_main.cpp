@@ -30,6 +30,10 @@ using namespace CSpack_energy_losses;
 //====================================================================================================================
 int main(int narg, char *args[])
 {
+    Kernel_representation Kth(1.0e-4, 0.1, 1.0e+4, 0.01, 1.0e-8, 1.0e-6, 2);
+
+    cout << Kth.Kernel(0.1) << " " << Kth.Kernel(0.1*0.99) << " " << Kth.Kernel(0.1*0.95) << endl;
+
     double omega0=0.000001, p0=20.0;
 
 //    cout << compute_exact_moments_analytical(omega0, p0, 0) << endl;
