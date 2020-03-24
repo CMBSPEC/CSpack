@@ -203,11 +203,10 @@ double moment_Int_therm(double omega0, int l, double theta)
     double epsrel=1.0e-8, epsabs=1.0e-100;
     
     double d[3]={omega0, double(l), theta};
-    void *p=(void *)d;
-    
+
     double a=sqrt(2.0*theta)*1.0e-8;
     double f=30.0, b=sqrt((2.0+f*theta)*f*theta);
-    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_moment, p);
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_moment, &d);
     return r/mb_dist_norm(theta);
 }
  

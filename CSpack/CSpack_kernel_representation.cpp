@@ -13,6 +13,32 @@
 using namespace std;
 using namespace CSpack_functions;
 using namespace CSpack_kernels;
+using namespace CSpack_kernel_moments;
+
+//==================================================================================================
+Kernel_representation::~Kernel_representation(){ spline_up=spline_down=-1; }
+
+Kernel_representation::Kernel_representation(double omin, double om0, double omax, int np,
+                                             double The,
+                                             double eps_thresh, double eps_interpol,
+                                             int maxMom)
+{
+    omega0=om0; Theta=The;
+    spline_up=spline_down=-1;
+
+    string type="exact";
+    P0=thermal_kernel_all(omega0, omega0, Theta, type);
+
+    create_kernel_splines(omin, eps_thresh, np, type);
+    create_kernel_splines(omax, eps_thresh, np, type);
+
+    // compute moments
+    for(int k=0; k<=maxMom; k++)
+        Moments.push_back(compute_moment(k));
+
+    for(int k=0; k<=maxMom; k++) cout << k << " " << Moments[k] << " "
+                                      << moment_2D_Int_therm_all_II(omega0, k, Theta, type) << endl;
+}
 
 //==================================================================================================
 // function for root finding process
@@ -65,6 +91,8 @@ void Kernel_representation::create_kernel_splines(double omega_lim, double eps_t
             lwsig=max(lwlim, lwsig);
             lwc=find_root_brent(root_func, &d, lwsig, lwstart, 1.0e-3);
         }
+
+        wmin=exp(lwc);
     }
     else  // omega >= omega0
     {
@@ -81,6 +109,8 @@ void Kernel_representation::create_kernel_splines(double omega_lim, double eps_t
             lwsig=min(lwlim, lwsig);
             lwc=find_root_brent(root_func, &d, lwstart, lwsig, 1.0e-3);
         }
+
+        wmax=exp(lwc);
     }
 
     //==============================================================================================
@@ -115,34 +145,54 @@ void Kernel_representation::create_kernel_splines(double omega_lim, double eps_t
 }
 
 //==================================================================================================
-Kernel_representation::~Kernel_representation(){ spline_up=spline_down=-1; }
-
-Kernel_representation::Kernel_representation(double omin, double om0, double omax,
-                                             double The,
-                                             double eps_thresh, double eps_interpol,
-                                             int maxMom)
-{
-    int np=500;
-    omega0=om0; Theta=The;
-    spline_up=spline_down=-1;
-
-    string type="exact";
-    P0=thermal_kernel_all(omega0, omega0, Theta, type);
-
-    create_kernel_splines(omin, eps_thresh, np, type);
-    create_kernel_splines(omax, eps_thresh, np, type);
-
-    // compute moments
-    // Moments.push_back(m);
-}
-
 double Kernel_representation::Kernel(double om)
 {
     double w=om/omega0;
+    if(w<=wmin || w>=wmax) return 0.0;
     if(w==1.0) return P0;
     if(w>1.0) return exp(calc_spline_JC(log(w), spline_up, "P+ interpol"));
-    return exp(calc_spline_JC(log(w), spline_down, "P- interpol"));;
+    return exp(calc_spline_JC(log(w), spline_down, "P- interpol"));
 }
+
+//==================================================================================================
+struct momentData
+{
+    int k;
+    int spline_up, spline_down;
+    bool stim;
+    double omega0, The;
+
+    momentData() { stim =0; }
+};
+
+double moment_func(double lw, void *p)
+{
+    momentData *d=(momentData *) p;
+    double w=exp(lw);
+    double lP=( w>1.0 ? calc_spline_JC(lw, d->spline_up  , "P+ interpol")
+                      : calc_spline_JC(lw, d->spline_down, "P- interpol") );
+
+    double Dnuk=pow(w-1.0, d->k);
+
+    return w*Dnuk*exp(lP);
+}
+
+
+double Kernel_representation::compute_moment(int k)
+{
+    double epsrel=1.0e-8, epsabs=1.0e-100;
+
+    momentData d;
+    d.k=k;
+    d.spline_up  =spline_up;
+    d.spline_down=spline_down;
+
+    double r=Integrate_using_Patterson_adaptive(log(wmin), 0.0, epsrel, epsabs, moment_func, &d);
+    r+=Integrate_using_Patterson_adaptive(0.0, log(wmax), epsrel, epsabs, moment_func, &d);
+    
+    return omega0*r;
+}
+
 
 //==================================================================================================
 //==================================================================================================
