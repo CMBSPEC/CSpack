@@ -42,6 +42,13 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         for(int i=0; i<npx; i++) Msc.push_back(zeros);
     }
 
+    // make vector of Kernel representations
+    vector<Kernel_representation> KR;
+    double omin=xarr[0]*theta, omax=xarr.back()*theta;
+    for(int i=0; i<npx; i++)
+        KR.push_back(Kernel_representation(omin, xarr[i]*theta, omax, 100,
+                                           theta, epsilon, epsilon, 2));
+
 #ifdef OPENMP_ACTIVATED
 #pragma omp parallel for default(shared) schedule(dynamic)
 #endif
@@ -53,7 +60,8 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         double omega_fac=Int_wi[i] * theta; // dnu' weight
         double om0=xarr[i]*theta;
         // diagonal element for reference
-        Msc[i][i]= thermal_kernel_exact(om0, om0, theta) * omega_fac;
+        //Msc[i][i]= thermal_kernel_exact(om0, om0, theta) * omega_fac;
+        Msc[i][i]= KR[i].Kernel(om0) * omega_fac;
 
         for(int j=i+1; j<npx; j++) //xp>x
         {
@@ -61,7 +69,8 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
             double om0=xarr[i]*theta, omp=xarr[j]*theta;
 
             // P(nu-->nu') here for all pairs i == col and j == row
-            Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
+            //Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
+            Msc[i][j]= KR[i].Kernel(omp) * omega_fac;
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }
@@ -72,7 +81,8 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
             double om0=xarr[i]*theta, omp=xarr[j]*theta;
 
             // P(nu-->nu') here for all pairs i == col and j == row
-            Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
+            //Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
+            Msc[i][j]= KR[i].Kernel(omp) * omega_fac;
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }
