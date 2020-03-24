@@ -41,6 +41,7 @@ double kappa(double omega0,  double omega, double p0, double p);
 double mb_dist_func(double p, double theta);
 double mb_dist_norm(double theta);
 double rel_mb_dist(double p, double theta);
+double pbar(double theta);
 
 //==================================================================================================
 // functions for Moments

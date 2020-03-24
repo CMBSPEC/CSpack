@@ -121,6 +121,11 @@ double mb_dist_norm(double the)
 double rel_mb_dist(double p, double theta)
 { return mb_dist_func(p, theta)/mb_dist_norm(theta); }
 
+double pbar(double theta)
+{
+    return 2.0*pow(theta, 2)*(1.0 + 3.0*theta + 3*pow(theta, 2))/mb_dist_norm(theta);
+}
+
 //==================================================================================================
 // functions for Moments
 //==================================================================================================
