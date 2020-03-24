@@ -66,7 +66,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         for(int j=i+1; j<npx; j++) //xp>x
         {
             double omega_fac=Int_wi[j] * theta; // dnu' weight
-            double om0=xarr[i]*theta, omp=xarr[j]*theta;
+            double omp=xarr[j]*theta;
 
             // P(nu-->nu') here for all pairs i == col and j == row
             //Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
@@ -78,7 +78,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         for(int j=i-1; j>=0; j--) //xp<x
         {
             double omega_fac=Int_wi[j] * theta; // dnu' weight
-            double om0=xarr[i]*theta, omp=xarr[j]*theta;
+            double omp=xarr[j]*theta;
 
             // P(nu-->nu') here for all pairs i == col and j == row
             //Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
