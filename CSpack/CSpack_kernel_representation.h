@@ -17,7 +17,7 @@ private:
 
     double omega0, Theta;
     double P0, wmin, wmax;
-    int spline_up, spline_down;
+    int spline_up, spline_down, np;
 
     vector<double> Moments;
 
@@ -28,10 +28,19 @@ public:
 
     //==============================================================================================
     ~Kernel_representation();
+    Kernel_representation();
     Kernel_representation(double omin, double om0, double omax, int np,
                           double The,
                           double eps_thresh, double eps_interpol,
                           int maxMom=0);
+
+    //==================================================================================================
+    // for openmp runs this should be ran serial before the init call...
+    //==================================================================================================
+    void allocate_splines(int np);
+
+    void init(double omin, double om0, double omax, int np, double The,
+              double eps_thresh, double eps_interpol, int maxMom=0);
 
     //==============================================================================================
     double Kernel(double om);

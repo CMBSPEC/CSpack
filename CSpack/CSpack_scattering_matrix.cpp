@@ -24,11 +24,12 @@ namespace CSpack_scattering_matrix {
 // outputs: Msc = wj Pij theta
 //
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
+// nK     : defines number of points per kernel wing for Kernel-representation method
 //==================================================================================================
 void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                const vector<double> &Int_wi,
                                vector<vector<double> > &Msc,
-                               double epsilon)
+                               double epsilon, int nK)
 {
     cout << " compute_scattering_matrix_thresh :: setting up scattering matrix." << endl;
 
@@ -43,11 +44,19 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
     }
 
     // make vector of Kernel representations
-    vector<Kernel_representation> KR;
-    double omin=xarr[0]*theta, omax=xarr.back()*theta;
-    for(int i=0; i<npx; i++)
-        KR.push_back(Kernel_representation(omin, xarr[i]*theta, omax, 100,
-                                           theta, epsilon, epsilon, 2));
+    vector<Kernel_representation> KR(npx);
+    if(nK>0)
+    {
+        double omin=xarr[0]*theta, omax=xarr.back()*theta;
+
+        for(int i=0; i<npx; i++) KR[i].allocate_splines(nK);
+
+#ifdef OPENMP_ACTIVATED
+#pragma omp parallel for default(shared) schedule(dynamic)
+#endif
+        for(int i=0; i<npx; i++)
+            KR[i].init(omin, xarr[i]*theta, omax, nK, theta, epsilon, epsilon, 2);
+    }
 
 #ifdef OPENMP_ACTIVATED
 #pragma omp parallel for default(shared) schedule(dynamic)
@@ -60,8 +69,8 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         double omega_fac=Int_wi[i] * theta; // dnu' weight
         double om0=xarr[i]*theta;
         // diagonal element for reference
-        //Msc[i][i]= thermal_kernel_exact(om0, om0, theta) * omega_fac;
-        Msc[i][i]= KR[i].Kernel(om0) * omega_fac;
+        if(nK==0) Msc[i][i]= thermal_kernel_exact(om0, om0, theta) * omega_fac;
+        else Msc[i][i]= KR[i].Kernel(om0) * omega_fac;
 
         for(int j=i+1; j<npx; j++) //xp>x
         {
@@ -69,8 +78,8 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
             double omp=xarr[j]*theta;
 
             // P(nu-->nu') here for all pairs i == col and j == row
-            //Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
-            Msc[i][j]= KR[i].Kernel(omp) * omega_fac;
+            if(nK==0) Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
+            else Msc[i][j]= KR[i].Kernel(omp) * omega_fac;
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }
@@ -81,8 +90,8 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
             double omp=xarr[j]*theta;
 
             // P(nu-->nu') here for all pairs i == col and j == row
-            //Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
-            Msc[i][j]= KR[i].Kernel(omp) * omega_fac;
+            if(nK==0) Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
+            else Msc[i][j]= KR[i].Kernel(omp) * omega_fac;
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }

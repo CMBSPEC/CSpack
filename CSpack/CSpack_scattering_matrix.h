@@ -23,11 +23,12 @@ namespace CSpack_scattering_matrix {
 // outputs: Msc = wj Pij theta
 //
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
+// nK     : defines number of points per kernel wing for Kernel-representation method
 //==================================================================================================
 void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                const vector<double> &Int_wi,
                                vector<vector<double> > &Msc,
-                               double epsilon=1.0e-40);
+                               double epsilon=1.0e-40, int nK=20);
 
 //==================================================================================================
 // total cross section

@@ -30,9 +30,14 @@ using namespace CSpack_energy_losses;
 //====================================================================================================================
 int main(int narg, char *args[])
 {
-    Kernel_representation Kth(1.0e-8, 0.01, 1.0e+4, 100, 0.01, 1.0e-10, 1.0e-6, 2);
+    Kernel_representation Kth(1.0e-4, 0.01, 0.01, 100, 0.1, 1.0e-10, 1.0e-6, 2);
 
-    cout << Kth.Kernel(0.1) << " " << Kth.Kernel(0.1*0.99) << " " << Kth.Kernel(0.1*0.95) << endl;
+    cout << Kth.Kernel(0.01*0.9999) << " " << Kth.Kernel(0.01*0.99) << " "
+         << Kth.Kernel(0.01*0.95) << " " << Kth.Kernel(0.01*1.1) << " " << Kth.Kernel(0.01) << endl;
+
+    Kernel_representation Kth2(1.0e-6, 1.0, 2.0, 100, 0.1, 1.0e-10, 1.0e-6, 2);
+    cout << Kth2.Kernel(1.0*0.9999) << " " << Kth2.Kernel(1.0*0.99) << " "
+         << Kth2.Kernel(1.0*0.95) << " " << Kth2.Kernel(1.0*1.1) << endl;
 
     double omega0=0.000001, p0=20.0;
 

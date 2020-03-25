@@ -16,28 +16,64 @@ using namespace CSpack_kernels;
 using namespace CSpack_kernel_moments;
 
 //==================================================================================================
-Kernel_representation::~Kernel_representation(){ spline_up=spline_down=-1; }
+Kernel_representation::~Kernel_representation()
+{
+    if(spline_up  !=-1) free_spline_JC(spline_up  , "P+");
+    if(spline_down!=-1) free_spline_JC(spline_down, "P-");
+}
 
-Kernel_representation::Kernel_representation(double omin, double om0, double omax, int np,
+Kernel_representation::Kernel_representation()
+{
+    spline_up=spline_down=np=-1;
+}
+
+Kernel_representation::Kernel_representation(double omin, double om0, double omax, int npv,
                                              double The,
                                              double eps_thresh, double eps_interpol,
                                              int maxMom)
 {
+    spline_up=spline_down=np=-1;
+    this->init(omin, om0, omax, npv, The, eps_thresh, eps_interpol, maxMom);
+}
+
+//==================================================================================================
+// for openmp runs this should be ran serial before the init call...
+//==================================================================================================
+void Kernel_representation::allocate_splines(int npv)
+{
+    if(spline_up  !=-1) free_spline_JC(spline_up  , "P+");
+    if(spline_down!=-1) free_spline_JC(spline_down, "P-");
+
+    np=npv;
+    vector<double> lw(np), lP(np, 0.0);
+    init_xarr(0.0, log(10.0), &lw[0], np, 0, 0);
+
+    spline_up  =calc_spline_coeffies_JC(np, &lw[0], &lP[0], "P+");
+    spline_down=calc_spline_coeffies_JC(np, &lw[0], &lP[0], "P-");
+
+    return;
+}
+
+void Kernel_representation::init(double omin, double om0, double omax, int npv, double The,
+                                 double eps_thresh, double eps_interpol, int maxMom)
+{
     omega0=om0; Theta=The;
-    spline_up=spline_down=-1;
+    wmin=omin/omega0; wmax=omax/omega0;
 
     string type="exact";
     P0=thermal_kernel_all(omega0, omega0, Theta, type);
 
-    create_kernel_splines(omin, eps_thresh, np, type);
-    create_kernel_splines(omax, eps_thresh, np, type);
+    if(np==-1) allocate_splines(npv);
+    create_kernel_splines(omin, eps_thresh, npv, type);
+    create_kernel_splines(omax, eps_thresh, npv, type);
 
     // compute moments
-    for(int k=0; k<=maxMom; k++)
-        Moments.push_back(compute_moment(k));
+    for(int k=0; k<=maxMom; k++) Moments.push_back(compute_moment(k));
 
-    for(int k=0; k<=maxMom; k++) cout << k << " " << Moments[k] << " "
-                                      << moment_2D_Int_therm_all_II(omega0, k, Theta, type) << endl;
+//    for(int k=0; k<=maxMom; k++)
+//        cout << k << " " << Moments[k]
+//                  << " " << moment_2D_Int_therm_all_II(omega0, k, Theta, type)
+//             << endl;
 }
 
 //==================================================================================================
@@ -56,10 +92,32 @@ double root_func(double *lw, void *p)
     return thermal_kernel_all(d->omega0, d->omega0*w, d->Theta, d->type)/d->P0eps-1.0;
 }
 
+double find_root_CS(double (* func)(double *, void *p), void *p,
+                    double x1, double x2, double xacc)
+{
+    if(x1==x2) return x1;
+    
+    double x;
+    if(x1>x2) x=find_root_brent(func, p, x2, x1, xacc);
+    else x=find_root_brent(func, p, x2, x1, xacc);
+
+    return x;
+}
+
 //==================================================================================================
 void Kernel_representation::create_kernel_splines(double omega_lim, double eps_thresh,
-                                                  int np, string type)
+                                                  int npv, string type)
 {
+    if(np!=-1 && np!=npv) throw_error("create_kernel_splines", "memory not correctly allocated", 1);
+
+    //==============================================================================================
+    // no need to set up kernel part in this case
+    //==============================================================================================
+    if(omega_lim==omega0) return;
+
+    //==============================================================================================
+    // data for generation of splines
+    //==============================================================================================
     rootData d;
     d.P0eps=P0*eps_thresh;
     d.omega0=omega0; d.Theta=Theta;
@@ -74,44 +132,23 @@ void Kernel_representation::create_kernel_splines(double omega_lim, double eps_t
     double lwstart=0.0, lwlim=log(omega_lim/omega0), lwsig=log(wfac), lwc;
     double P=thermal_kernel_all(omega0, omega0*exp(lwsig), Theta, type);
 
-    if(lwlim<0.0) // omega =< omega0
+    if(P<=P0*eps_thresh) lwc=find_root_CS(root_func, &d, lwsig, lwstart, 1.0e-3);
+    else
     {
-        if(P<=P0*eps_thresh) lwc=find_root_brent(root_func, &d, lwsig, lwstart, 1.0e-3);
-        else
+        lwstart=lwsig;
+        while(P>P0*eps_thresh && fabs(lwsig)<=fabs(lwlim))
         {
-            lwstart=lwsig;
-            while(P>P0*eps_thresh && lwsig>=lwlim)
-            {
-                lwsig*=2.0;
-                P=thermal_kernel_all(omega0, omega0*exp(lwsig), Theta, type);
-            }
-
-            lwsig=max(lwlim, lwsig);
-            lwc=find_root_brent(root_func, &d, lwsig, lwstart, 1.0e-3);
+            lwsig*=2.0;
+            P=thermal_kernel_all(omega0, omega0*exp(lwsig), Theta, type);
         }
 
-        wmin=exp(lwc);
-        //cout << " min " << omegamin(omega0, pbar(Theta))/omega0 << " " << wmin << endl;
+        // if w found within range that brackets null --> solve
+        if(P<P0*eps_thresh) lwc=find_root_CS(root_func, &d, lwsig, lwstart, 1.0e-3);
+        else lwc=lwsig;
     }
-    else  // omega >= omega0
-    {
-        if(P<=P0*eps_thresh) lwc=find_root_brent(root_func, &d, lwstart, lwsig, 1.0e-3);
-        else
-        {
-            lwstart=lwsig;
-            while(P>P0*eps_thresh && lwsig<=lwlim)
-            {
-                lwsig*=2.0;
-                P=thermal_kernel_all(omega0, omega0*exp(lwsig), Theta, type);
-            }
 
-            lwsig=min(lwlim, lwsig);
-            lwc=find_root_brent(root_func, &d, lwstart, lwsig, 1.0e-3);
-        }
-
-        wmax=exp(lwc);
-        //cout << " max " << omegamax(omega0, pbar(Theta))/omega0 << " " << wmax << endl;
-    }
+    if(omega_lim<omega0) wmin=max(wmin, exp(lwc))/1.01;
+    else wmax=min(wmax, exp(lwc))*1.01;
 
     //==============================================================================================
     // compute kernel in log-log
@@ -120,25 +157,23 @@ void Kernel_representation::create_kernel_splines(double omega_lim, double eps_t
 
     if(lwc>0.0)
     {
-        init_xarr(0.0, lwc, &lw[0], np, 0, 0);
+        init_xarr(0.0, log(wmax), &lw[0], np, 0, 0);
         lP[0]=log(P0);
         for(int i=1; i<np; i++)
             lP[i]=log(thermal_kernel_all(omega0, omega0*exp(lw[i]), Theta, type));
 
         // setup splines
-        if(spline_up==-1) spline_up=calc_spline_coeffies_JC(np, &lw[0], &lP[0], "P+");
-        else update_spline_coeffies_JC(spline_up, np, &lw[0], &lP[0], "P+");
+        update_spline_coeffies_JC(spline_up, np, &lw[0], &lP[0], "P+");
     }
     else
     {
-        init_xarr(lwc, 0.0, &lw[0], np, 0, 0);
+        init_xarr(log(wmin), 0.0, &lw[0], np, 0, 0);
         lP.back()=log(P0);
         for(int i=0; i<np-1; i++)
             lP[i]=log(thermal_kernel_all(omega0, omega0*exp(lw[i]), Theta, type));
 
         // setup splines
-        if(spline_down==-1) spline_down=calc_spline_coeffies_JC(np, &lw[0], &lP[0], "P-");
-        else update_spline_coeffies_JC(spline_down, np, &lw[0], &lP[0], "P-");
+        update_spline_coeffies_JC(spline_down, np, &lw[0], &lP[0], "P-");
     }
 
     return;
@@ -148,10 +183,13 @@ void Kernel_representation::create_kernel_splines(double omega_lim, double eps_t
 double Kernel_representation::Kernel(double om)
 {
     double w=om/omega0;
-    if(w<=wmin || w>=wmax) return 0.0;
-    if(w==1.0) return P0;
-    if(w>1.0) return exp(calc_spline_JC(log(w), spline_up, "P+ interpol"));
-    return exp(calc_spline_JC(log(w), spline_down, "P- interpol"));
+
+    if(w<wmin || w>wmax) return 0.0;
+    
+    if(w>1.0 && spline_up!=-1) return exp(calc_spline_JC(log(w), spline_up, "P+ interpol"));
+    if(w<1.0 && spline_down!=-1) return exp(calc_spline_JC(log(w), spline_down, "P- interpol"));
+
+    return P0;
 }
 
 //==================================================================================================
