@@ -20,10 +20,14 @@ private:
     int spline_up, spline_down, np;
 
     vector<double> Moments;
+    double G, H;
 
     void create_kernel_splines(double omega_lim, double eps_thresh, int np, string type);
     double compute_moment(int k);
+    double compute_G();
+    double compute_H();
 
+    
 public:
 
     //==============================================================================================
@@ -50,6 +54,8 @@ public:
     double Get_omega_min() { return omega0*wmin; }
     double Get_omega_max() { return omega0*wmax; }
     double Get_Mom(int k){ return (k<(int)Moments.size() ? Moments[k] : 0.0); }
+    double Get_G(){ return G; }
+    double Get_H(){ return H; }
 };
 
 ////==================================================================================================

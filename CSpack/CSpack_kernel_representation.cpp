@@ -69,6 +69,8 @@ void Kernel_representation::init(double omin, double om0, double omax, int npv, 
 
     // compute moments
     for(int k=0; k<=maxMom; k++) Moments.push_back(compute_moment(k));
+    G=compute_G();
+    H=compute_H();
 
 //    for(int k=0; k<=maxMom; k++)
 //        cout << k << " " << Moments[k]
@@ -230,7 +232,7 @@ double moment_func_flipped(double lw, void *p)
 
 double Kernel_representation::compute_moment(int k)
 {
-    double epsrel=1.0e-8, epsabs=1.0e-100;
+    double epsrel=1.0e-9, epsabs=1.0e-100;
 
     momentData d;
     d.k=k;
@@ -251,6 +253,63 @@ double Kernel_representation::compute_moment(int k)
     return omega0*r;
 }
 
+double moment_G_func(double lw, void *p)
+{
+    // G=2 Sigma_2 - Sigma_1
+    momentData *d=(momentData *) p;
+    double w=exp(lw);
+    double lP=( w>1.0 ? calc_spline_JC(lw, d->spline_up  , "P+ interpol")
+                      : calc_spline_JC(lw, d->spline_down, "P- interpol") );
+
+    double Dnuk=(w-1.0)*(2.0*w-3.0);
+
+    return w*Dnuk*exp(lP);
+}
+
+double Kernel_representation::compute_G()
+{
+    double epsrel=1.0e-9, epsabs=1.0e-100;
+
+    momentData d;
+    d.spline_up  =spline_up;
+    d.spline_down=spline_down;
+    d.lwmin=-log(wmin);
+    d.lwmax= log(wmax);
+
+    double r=Integrate_using_Patterson_adaptive(-d.lwmin, 0.0, epsrel, epsabs, moment_G_func, &d);
+    r+=Integrate_using_Patterson_adaptive(0.0, d.lwmax, epsrel, epsabs, moment_G_func, &d);
+
+    return omega0*r;
+}
+
+double moment_H_func(double lw, void *p)
+{
+    // H=4 Sigma_2 - Sigma_1
+    momentData *d=(momentData *) p;
+    double w=exp(lw);
+    double lP=( w>1.0 ? calc_spline_JC(lw, d->spline_up  , "P+ interpol")
+                      : calc_spline_JC(lw, d->spline_down, "P- interpol") );
+
+    double Dnuk=(w-1.0)*(4.0*w-5.0);
+
+    return w*Dnuk*exp(lP);
+}
+
+double Kernel_representation::compute_H()
+{
+    double epsrel=1.0e-9, epsabs=1.0e-100;
+
+    momentData d;
+    d.spline_up  =spline_up;
+    d.spline_down=spline_down;
+    d.lwmin=-log(wmin);
+    d.lwmax= log(wmax);
+
+    double r=Integrate_using_Patterson_adaptive(-d.lwmin, 0.0, epsrel, epsabs, moment_H_func, &d);
+    r+=Integrate_using_Patterson_adaptive(0.0, d.lwmax, epsrel, epsabs, moment_H_func, &d);
+
+    return omega0*r;
+}
 
 //==================================================================================================
 //==================================================================================================

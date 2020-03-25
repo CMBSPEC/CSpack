@@ -189,15 +189,16 @@ double integrand_p_all(double lp, void *q)
 {
     Integration_data *d=(Integration_data *)q;
     double p=exp(lp);
-    double fact= mb_dist_func(p, d->theta)*pow(p, 3) * d->kernel_ptr(d->omega0, p, d->omega);
+    double fact= mb_dist_func(p, d->theta) * pow(p, 3) * d->kernel_ptr(d->omega0, p, d->omega);
     return fact;
 }
  
 double thermal_kernel_all(double omega0, double omega, double theta, string type)
 {
-    double epsrel=1.0e-8, epsabs=1.0e-100;
-    double pmax = sqrt( (theta*log(1.0e-20) - 2.0)*theta*log(1.0e-20) );
- 
+    double epsrel=1.0e-9, epsabs=1.0e-100;
+    double pmax = sqrt( (theta*log(1.0e-30) - 2.0)*theta*log(1.0e-30) );
+    double pb=pbar(theta);
+
     Integration_data d;
     d.omega=omega; d.omega0=omega0; d.theta=theta;
     d.kernel_ptr=Get_kernel_pointer(type, "thermal_kernel_all");
@@ -206,9 +207,9 @@ double thermal_kernel_all(double omega0, double omega, double theta, string type
     if (type=="doppler") a = lower_limit_dop(omega0, omega);
     else a = lower_limit(omega0, omega);
 
-    a=max(sqrt(2.0*theta)*1.0e-8, a);
-    b=max(pmax, a*10.0);
-    
+    a=max(pb*1.0e-12, a);
+    b=max(pmax, pb*20.0);
+
     double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_p_all, &d);
     return r/mb_dist_norm(theta);
 }
