@@ -17,6 +17,7 @@ using namespace std;
 #include "CSpack_scattering_matrix.h"
 #include "CSpack_energy_losses.h"
 #include "CSpack_kernel_representation.h"
+#include "CSpack_equilibrium_solutions.h"
 
 #endif
 

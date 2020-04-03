@@ -31,7 +31,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                const vector<double> &Int_wi, int nK,
                                vector<vector<double> > &Msc,
                                vector<Kernel_representation> &KR,
-                               double epsilon)
+                               double epsilon, bool stim)
 {
     cout << " compute_scattering_matrix_thresh :: setting up scattering matrix." << endl;
 
@@ -47,14 +47,15 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
 
     // make vector of Kernel representations
     KR.resize(npx);
-    double omin=xarr[0]*theta, omax=xarr.back()*theta;
+    double omin=xarr[0]*theta/300.0, omax=xarr.back()*theta*300.0;
+    //double omin=xarr[0]*theta, omax=xarr.back()*theta;
     for(int i=0; i<npx; i++) KR[i].allocate_splines(nK);
 
 #ifdef OPENMP_ACTIVATED
 #pragma omp parallel for default(shared) schedule(dynamic)
 #endif
     for(int i=0; i<npx; i++)
-        KR[i].init(omin, xarr[i]*theta, omax, nK, theta, epsilon, epsilon, 2);
+        KR[i].init(omin, xarr[i]*theta, omax, nK, theta, epsilon, epsilon, 2, stim);
 
     for(int i=0; i<npx; i++) //x
     {

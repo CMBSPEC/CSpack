@@ -33,7 +33,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                const vector<double> &Int_wi, int nK,
                                vector<vector<double> > &Msc,
                                vector<Kernel_representation> &KR,
-                               double epsilon=1.0e-40);
+                               double epsilon=1.0e-40, bool stim=0);
 
 //==================================================================================================
 // Routines for scattering matrix setups

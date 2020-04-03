@@ -30,10 +30,10 @@ Kernel_representation::Kernel_representation()
 Kernel_representation::Kernel_representation(double omin, double om0, double omax, int npv,
                                              double The,
                                              double eps_thresh, double eps_interpol,
-                                             int maxMom)
+                                             int maxMom, bool stim)
 {
     spline_up=spline_down=np=-1;
-    this->init(omin, om0, omax, npv, The, eps_thresh, eps_interpol, maxMom);
+    this->init(omin, om0, omax, npv, The, eps_thresh, eps_interpol, maxMom, stim);
 }
 
 //==================================================================================================
@@ -55,7 +55,7 @@ void Kernel_representation::allocate_splines(int npv)
 }
 
 void Kernel_representation::init(double omin, double om0, double omax, int npv, double The,
-                                 double eps_thresh, double eps_interpol, int maxMom)
+                                 double eps_thresh, double eps_interpol, int maxMom, bool stim)
 {
     omega0=om0; Theta=The;
     wmin=omin/omega0; wmax=omax/omega0;
@@ -68,9 +68,9 @@ void Kernel_representation::init(double omin, double om0, double omax, int npv, 
     create_kernel_splines(omax, eps_thresh, npv, type);
 
     // compute moments
-    for(int k=0; k<=maxMom; k++) Moments.push_back(compute_moment(k));
-    G=compute_G();
-    H=compute_H();
+    for(int k=0; k<=maxMom; k++) Moments.push_back(compute_moment(k, stim));
+    G=compute_G(stim);
+    H=compute_H(stim);
 
 //    for(int k=0; k<=maxMom; k++)
 //        cout << k << " " << Moments[k]
@@ -213,9 +213,10 @@ double moment_func(double lw, void *p)
     double lP=( w>1.0 ? calc_spline_JC(lw, d->spline_up  , "P+ interpol")
                       : calc_spline_JC(lw, d->spline_down, "P- interpol") );
 
+    double f=(d->stim ? one_minus_exp_mx(d->omega0/d->The)/one_minus_exp_mx(w*d->omega0/d->The) : 1.0);
     double Dnuk=pow(w-1.0, d->k);
 
-    return w*Dnuk*exp(lP);
+    return w*Dnuk*exp(lP)*f;
 }
 
 double moment_func_flipped(double lw, void *p)
@@ -225,14 +226,15 @@ double moment_func_flipped(double lw, void *p)
     double lPp=( lw>=d->lwmax ? 0.0 : calc_spline_JC( lw, d->spline_up  , "P+ interpol") );
     double lPm=( lw>=d->lwmin ? 0.0 : calc_spline_JC(-lw, d->spline_down, "P- interpol") );
 
+    double f=(d->stim ? one_minus_exp_mx(d->omega0/d->The)/one_minus_exp_mx(w*d->omega0/d->The) : 1.0);
     double Dnuk=pow(w-1.0, d->k);
 
-    return w*Dnuk*( exp(lPp) + exp(lPm)/pow(-w, d->k+2) );
+    return w*Dnuk*( exp(lPp) + exp(lPm)/pow(-w, d->k+2) )*f;
 }
 
-double Kernel_representation::compute_moment(int k)
+double Kernel_representation::compute_moment(int k, bool stim)
 {
-    double epsrel=1.0e-9, epsabs=1.0e-100;
+    double epsrel=1.0e-8, epsabs=1.0e-100;
 
     momentData d;
     d.k=k;
@@ -240,9 +242,13 @@ double Kernel_representation::compute_moment(int k)
     d.spline_down=spline_down;
     d.lwmin=-log(wmin);
     d.lwmax= log(wmax);
+    d.omega0=omega0; d.The=Theta;
+    d.stim=stim;
 
-    double r=Integrate_using_Patterson_adaptive(-d.lwmin, 0.0, epsrel, epsabs, moment_func, &d);
-    r+=Integrate_using_Patterson_adaptive(0.0, d.lwmax, epsrel, epsabs, moment_func, &d);
+    double r=Integrate_using_Patterson_adaptive(-d.lwmin, d.lwmax, epsrel, epsabs, moment_func, &d);
+    
+//    double r=Integrate_using_Patterson_adaptive(-d.lwmin, 0.0, epsrel, epsabs, moment_func, &d);
+//    r+=Integrate_using_Patterson_adaptive(0.0, d.lwmax, epsrel, epsabs, moment_func, &d);
 
 //    double r=Integrate_using_Patterson_adaptive(0.0, min(d.lwmin, d.lwmax),
 //                                                epsrel, epsabs, moment_func_flipped, &d);
@@ -261,12 +267,13 @@ double moment_G_func(double lw, void *p)
     double lP=( w>1.0 ? calc_spline_JC(lw, d->spline_up  , "P+ interpol")
                       : calc_spline_JC(lw, d->spline_down, "P- interpol") );
 
+    double f=(d->stim ? one_minus_exp_mx(d->omega0/d->The)/one_minus_exp_mx(w*d->omega0/d->The) : 1.0);
     double Dnuk=(w-1.0)*(2.0*w-3.0);
 
-    return w*Dnuk*exp(lP);
+    return w*Dnuk*exp(lP)*f;
 }
 
-double Kernel_representation::compute_G()
+double Kernel_representation::compute_G(bool stim)
 {
     double epsrel=1.0e-9, epsabs=1.0e-100;
 
@@ -275,6 +282,8 @@ double Kernel_representation::compute_G()
     d.spline_down=spline_down;
     d.lwmin=-log(wmin);
     d.lwmax= log(wmax);
+    d.omega0=omega0; d.The=Theta;
+    d.stim=stim;
 
     double r=Integrate_using_Patterson_adaptive(-d.lwmin, 0.0, epsrel, epsabs, moment_G_func, &d);
     r+=Integrate_using_Patterson_adaptive(0.0, d.lwmax, epsrel, epsabs, moment_G_func, &d);
@@ -290,12 +299,13 @@ double moment_H_func(double lw, void *p)
     double lP=( w>1.0 ? calc_spline_JC(lw, d->spline_up  , "P+ interpol")
                       : calc_spline_JC(lw, d->spline_down, "P- interpol") );
 
+    double f=(d->stim ? one_minus_exp_mx(d->omega0/d->The)/one_minus_exp_mx(w*d->omega0/d->The) : 1.0);
     double Dnuk=(w-1.0)*(4.0*w-5.0);
 
-    return w*Dnuk*exp(lP);
+    return w*Dnuk*exp(lP)*f;
 }
 
-double Kernel_representation::compute_H()
+double Kernel_representation::compute_H(bool stim)
 {
     double epsrel=1.0e-9, epsabs=1.0e-100;
 
@@ -304,6 +314,8 @@ double Kernel_representation::compute_H()
     d.spline_down=spline_down;
     d.lwmin=-log(wmin);
     d.lwmax= log(wmax);
+    d.omega0=omega0; d.The=Theta;
+    d.stim=stim;
 
     double r=Integrate_using_Patterson_adaptive(-d.lwmin, 0.0, epsrel, epsabs, moment_H_func, &d);
     r+=Integrate_using_Patterson_adaptive(0.0, d.lwmax, epsrel, epsabs, moment_H_func, &d);

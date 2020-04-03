@@ -23,9 +23,9 @@ private:
     double G, H;
 
     void create_kernel_splines(double omega_lim, double eps_thresh, int np, string type);
-    double compute_moment(int k);
-    double compute_G();
-    double compute_H();
+    double compute_moment(int k, bool stim);
+    double compute_G(bool stim);
+    double compute_H(bool stim);
 
     
 public:
@@ -36,7 +36,7 @@ public:
     Kernel_representation(double omin, double om0, double omax, int np,
                           double The,
                           double eps_thresh, double eps_interpol,
-                          int maxMom=0);
+                          int maxMom=0, bool stim=0);
 
     //==================================================================================================
     // for openmp runs this should be ran serial before the init call...
@@ -44,7 +44,7 @@ public:
     void allocate_splines(int np);
 
     void init(double omin, double om0, double omax, int np, double The,
-              double eps_thresh, double eps_interpol, int maxMom=0);
+              double eps_thresh, double eps_interpol, int maxMom=0, bool stim=0);
 
     //==============================================================================================
     double Kernel(double om);

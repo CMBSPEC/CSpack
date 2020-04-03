@@ -73,7 +73,8 @@ OBJSCS = ./CSpack/CSpack_functions.o \
         ./CSpack/CSpack_kernel_moments.o \
         ./CSpack/CSpack_scattering_matrix.o \
         ./CSpack/CSpack_energy_losses.o \
-        ./CSpack/CSpack_kernel_representation.o
+        ./CSpack/CSpack_kernel_representation.o \
+        ./CSpack/CSpack_equilibrium_solutions.o
 
 OBJS = $(OBJSDEV) $(OBJSCS)
 
