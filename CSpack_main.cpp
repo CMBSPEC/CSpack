@@ -40,7 +40,8 @@ int main(int narg, char *args[])
     cout << Kth2.Kernel(1.0*0.9999) << " " << Kth2.Kernel(1.0*0.99) << " "
          << Kth2.Kernel(1.0*0.95) << " " << Kth2.Kernel(1.0*1.1) << endl;
 
-    cout << Compute_muc_N(-0.99) << " " << Compute_muc_rho(-0.99) << endl;
+    cout << Compute_muc_N(-0.001) << " " << Compute_muc_rho(-0.001) << " "
+         << Compute_Drho_rho(-0.0001) << " " << Compute_muc_N(-0.0001)/1.401 << endl;
 
     double omega0=0.000001, p0=20.0;
 

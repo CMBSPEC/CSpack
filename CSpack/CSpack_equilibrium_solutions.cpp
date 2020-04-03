@@ -119,6 +119,15 @@ double Compute_muc_rho(double DTg_Te, double Drho_rho)
     return find_root_brent(root_func_equilibrium, &d, 0.0, 200.0, 1.0e-16);
 }
 
+double Compute_Drho_rho(double DTg_Te, double DN_N)
+{
+    double muc=Compute_muc_N(DTg_Te, DN_N);
+    double DE_E_int=DEnergy_integral(muc);
+    double DTT4=(2.0+DTg_Te)*DTg_Te*(2.0+DTg_Te*(2.0+DTg_Te));
+
+    return (DE_E_int-DTT4)/(1.0+DTT4);
+}
+
 }
 
 //==================================================================================================
