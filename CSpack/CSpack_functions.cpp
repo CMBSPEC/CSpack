@@ -1,11 +1,8 @@
 //==================================================================================================
-//  CSpack_functions.cpp
-//
 //  Created by Abir Sarkar on 15/11/2019 and modified by JC. These routines are based on:
 //  Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
 //==================================================================================================
 
-#include <stdio.h>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -15,11 +12,11 @@
 #include <gsl/gsl_sf_bessel.h>
 
 #include "Definitions.h"
-#include "CSpack_functions.h"
+#include "CSpack.h"
 
 using namespace std;
 
-namespace CSpack_functions{
+namespace CSpack_functions {
 
 //==================================================================================================
 // Common simple functions
@@ -27,8 +24,11 @@ namespace CSpack_functions{
 double gamma_f(double p0)
 { return sqrt(pow(p0, 2)+1.0); }
 
-double pfunc(double g0)
-{ return sqrt(pow(g0, 2)-1.0); }
+double pfunc(double g0) // sqrt(g^2-1)
+{
+    double Dg=g0-1.0;
+    return sqrt(Dg*(2.0+Dg));
+}
 
 //==================================================================================================
 double gamma_sc(double omega0, double p0, double omega)
@@ -41,15 +41,12 @@ double pfunc_sc(double omega0, double p0, double omega)
 // Critical frequencies
 //==================================================================================================
 double omegacrit(double omega0, double p0)
-//{ return omega0*(gamma_f(p0) + p0)/(gamma_f(p0) - p0 + 2.0*omega0); }
 { return omega0*pow(gamma_f(p0) + p0, 2)/(1.0 + 2.0*omega0*(gamma_f(p0) + p0)); }
 
 double omegamin(double omega0, double p0)
-//{ return omega0*(gamma_f(p0) - p0)/(gamma_f(p0) + p0 + 2.0*omega0); }
 { return omega0/(gamma_f(p0) + p0)/(gamma_f(p0) + p0 + 2.0*omega0); }
 
 double omegatot(double omega0, double p0)
-//{ return gamma_f(p0) + omega0 - 1.0; }
 { return p0*p0/(1.0+gamma_f(p0)) + omega0; }
 
 double omegamax(double omega0, double p0)
@@ -63,11 +60,9 @@ double omegamax(double omega0, double p0)
 // Functions for the Kernel
 //==================================================================================================
 double lambda_p(double p0, double omega0)
-//{ return pow((gamma_f(p0)+omega0),2)-1.0; }
 { return p0*p0+2.0*gamma_f(p0)*omega0+omega0*omega0; }
 
 double lambda_m(double p0, double omega)
-//{ return pow((gamma_f(p0)-omega),2)-1.0; }
 { return p0*p0-2.0*gamma_f(p0)*omega+omega*omega; }
 
 //==================================================================================================
@@ -126,6 +121,11 @@ double mb_dist_norm(double the)
 double rel_mb_dist(double p, double theta)
 { return mb_dist_func(p, theta)/mb_dist_norm(theta); }
 
+double pbar(double theta)
+{
+    return 2.0*pow(theta, 2)*(1.0 + 3.0*theta + 3*pow(theta, 2))/mb_dist_norm(theta);
+}
+
 //==================================================================================================
 // functions for Moments
 //==================================================================================================
@@ -133,12 +133,24 @@ double alphap(double omega0, double p0)
 { return  1.0 + 2.0*(gamma_f(p0) + p0)*omega0; }
 
 double alpham(double omega0, double p0)
-//{ return  1.0 + 2.0*(gamma_f(p0) - p0)*omega0; }
 { return  1.0 + 2.0/(gamma_f(p0) + p0)*omega0; }
 
 double f_moment(double omega0, double p0)
-//{ return gsl_sf_dilog(1.0 - alphap(omega0, p0)) - gsl_sf_dilog(1.0 - alpham(omega0, p0)); }
 { return gsl_sf_dilog(-2.0*(gamma_f(p0)+p0)*omega0)-gsl_sf_dilog(-2.0/(gamma_f(p0)+p0)*omega0); }
+
+//==================================================================================================
+// spectral functions for use with blackbody radiation
+//==================================================================================================
+double one_minus_exp_mx(double x) // == 1 - exp(-x)
+{
+    //==============================================================================================
+    // for small x use series expansion for 1-exp(-x)
+    //==============================================================================================
+    if(x<=0.001) return x*(1.0+(-0.5+(1.0/6.0+(-1.0/24.0+(1.0/120.0-1.0/720.0*x)*x)*x)*x)*x);
+    else return 1.0-exp(-x);
+}
+
+double nbb_func(double x){ return exp(-x)/one_minus_exp_mx(x); }          // == 1/[exp(x)-1]
 
 }
 

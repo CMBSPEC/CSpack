@@ -1,15 +1,13 @@
 //==================================================================================================
-//  CSpack_kernels.cpp
-//
 //  Created by Abir Sarkar on 15/11/2019 and modified by JC. These functions are based on
 //  Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
 //==================================================================================================
 
 #include "routines.h"
 #include "Patterson.h"
+#include "Compton_Kernel.h"
 
-#include "CSpack_functions.h"
-#include "CSpack_kernels.h"
+#include "CSpack.h"
 
 using namespace std;
 using namespace CSpack_functions;
@@ -35,7 +33,7 @@ double G_func(double omega, double omega0, double p0, double om0star, double oms
     return common_fact*kappa*(fact1+2.0*fact2+(1.0+omega*omega0)*fact3);
 }
 
-namespace CSpack_kernels{
+namespace CSpack_kernels {
 
 //==================================================================================================
 // EXACT KERNEL
@@ -109,17 +107,20 @@ double kernel_ur(double omega0, double p0, double omega)
     return kerval;
 }
 
+kernel_ptr Get_kernel_pointer(string type, string calling_func)
+{
+    if(type=="exact") return kernel_exact;
+    else if(type=="recoil") return kernel_recoil;
+    else if(type=="doppler") return kernel_doppler;
+    else if(type=="ur") return kernel_ur;
+    else throw_error(calling_func, "choose type 'exact', 'recoil', 'doppler', 'ur'", 1);
+
+    return NULL;
+}
+
 double kernel_all(double omega0, double p0, double omega, string type)
 {
-    double (*kernel_ptr)(double omega0, double p0, double omega)=NULL;
-
-    // do mapping of function pointers outside of integral
-    if(type=="exact"){ kernel_ptr = kernel_exact; }
-    else if(type=="recoil"){ kernel_ptr = kernel_recoil; }
-    else if(type=="doppler"){ kernel_ptr = kernel_doppler; }
-    else if(type=="ur"){ kernel_ptr = kernel_ur; }
-    else throw_error("kernel_all", "choose type 'exact', 'recoil', 'doppler', 'ur'", 1);
-
+    double (*kernel_ptr)(double omega0, double p0, double omega)=Get_kernel_pointer(type, "kernel_all");
     return kernel_ptr(omega0, p0, omega);
 }
 
@@ -146,14 +147,14 @@ double lower_limit(double omega0, double omega)
     else if(omega > omega0 && omega0 <= 0.5)
     {
         if(omega <= omega0/(1.0-2.0*omega0))
-            lim = sqrt(pow(omega-omega0+1.0, 2)-1.0);
+            lim = sqrt( (omega-omega0)*(omega-omega0+2.0) );
 
         else lim = (omega-omega0)/2.0*sqrt((1.0+omega*omega0)/(omega*omega0)) + (omega0+omega)/2.0;
     }
 
     else if(omega > omega0 && omega0 > 0.5)
     {
-        lim = sqrt(pow(omega-omega0+1.0, 2)-1.0);
+        lim = sqrt( (omega-omega0)*(omega-omega0+2.0) );
     }
 
     return lim;
@@ -189,32 +190,30 @@ double integrand_p_all(double lp, void *q)
 {
     Integration_data *d=(Integration_data *)q;
     double p=exp(lp);
-    double fact= mb_dist_func(p, d->theta)*pow(p, 3) * d->kernel_ptr(d->omega0, p, d->omega);
+    double fact= mb_dist_func(p, d->theta) * pow(p, 3) * d->kernel_ptr(d->omega0, p, d->omega);
     return fact;
 }
  
 double thermal_kernel_all(double omega0, double omega, double theta, string type)
 {
-    double epsrel=1.0e-8, epsabs=1.0e-100;
-    double pmax = sqrt( (theta*log(1.0e-20) - 2.0)*theta*log(1.0e-20) );
- 
+    if(type=="SS_K") return PK_Kernel(omega0/const_h_mec2, omega/const_h_mec2, theta)/const_h_mec2;
+    else if(type=="SS_C") return P_Compton(omega0/const_h_mec2, omega/const_h_mec2, theta)/const_h_mec2;
+
+    double epsrel=1.0e-9, epsabs=1.0e-100;
+    double pmax = sqrt( (theta*log(1.0e-30) - 2.0)*theta*log(1.0e-30) );
+    double pb=pbar(theta);
+
     Integration_data d;
     d.omega=omega; d.omega0=omega0; d.theta=theta;
-    
-    // do mapping of function pointers outside of integral
-    if(type=="exact"){ d.kernel_ptr = kernel_exact; }
-    else if(type=="recoil"){ d.kernel_ptr = kernel_recoil; }
-    else if(type=="doppler"){ d.kernel_ptr = kernel_doppler; }
-    else if(type=="ur"){ d.kernel_ptr = kernel_ur; }
-    else throw_error("thermal_kernel_all", "choose type 'exact', 'recoil', 'doppler', 'ur'", 1);
+    d.kernel_ptr=Get_kernel_pointer(type, "thermal_kernel_all");
 
     double a, b;
     if (type=="doppler") a = lower_limit_dop(omega0, omega);
     else a = lower_limit(omega0, omega);
 
-    a=max(sqrt(2.0*theta)*1.0e-8, a);
-    b=max(pmax, a*10.0);
-    
+    a=max(pb*1.0e-12, a);
+    b=max(pmax, pb*20.0);
+
     double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_p_all, &d);
     return r/mb_dist_norm(theta);
 }
@@ -238,6 +237,19 @@ double thermal_kernel_doppler(double omega0, double omega, double theta)
 double thermal_kernel_ur(double omega0, double omega, double theta)
 {
     return thermal_kernel_all(omega0, omega, theta, "ur");
+}
+
+//==================================================================================================
+// kernels from Sazonov & Sunyaev 2000
+//==================================================================================================
+double thermal_kernel_SS_K(double omega0, double omega, double theta)
+{
+    return thermal_kernel_all(omega0, omega, theta, "SS_K");
+}
+
+double thermal_kernel_SS_C(double omega0, double omega, double theta)
+{
+    return thermal_kernel_all(omega0, omega, theta, "SS_C");
 }
 
 }

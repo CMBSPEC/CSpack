@@ -1,6 +1,4 @@
 //==================================================================================================
-//  CSpack_kernel_moments.cpp
-//
 //  Created by Abir Sarkar on 15/11/2019 and modified by JC. These functions are based on
 //  Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
 //==================================================================================================
@@ -10,15 +8,13 @@
 #include "routines.h"
 #include "Patterson.h"
 
-#include "CSpack_functions.h"
-#include "CSpack_kernels.h"
-#include "CSpack_kernel_moments.h"
+#include "CSpack.h"
 
 using namespace std;
 using namespace CSpack_functions;
 using namespace CSpack_kernels;
 
-namespace CSpack_kernel_moments{
+namespace CSpack_kernel_moments {
 
 //==================================================================================================
 //
@@ -207,11 +203,10 @@ double moment_Int_therm(double omega0, int l, double theta)
     double epsrel=1.0e-8, epsabs=1.0e-100;
     
     double d[3]={omega0, double(l), theta};
-    void *p=(void *)d;
-    
+
     double a=sqrt(2.0*theta)*1.0e-8;
     double f=30.0, b=sqrt((2.0+f*theta)*f*theta);
-    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_moment, p);
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_moment, &d);
     return r/mb_dist_norm(theta);
 }
  
@@ -388,19 +383,14 @@ double integrand_moments_all(double lgomega, void *q)
     return omega*K*Dnu_nuk;
 }
  
+//==================================================================================================
 double moment_2D_Int_therm_all(double omega0, int k, double theta, string type)
 {
     Integration_data_moments d;
     d.omega0=omega0;
     d.theta=theta;
     d.k=k;
-    
-    // do mapping of function pointers outside of integral
-    if(type=="exact"){ d.thermal_kernel_ptr = thermal_kernel_exact; }
-    else if(type=="recoil"){ d.thermal_kernel_ptr = thermal_kernel_recoil; }
-    else if(type=="doppler"){ d.thermal_kernel_ptr = thermal_kernel_doppler; }
-    else if(type=="ur"){ d.thermal_kernel_ptr = thermal_kernel_ur; }
-    else throw_error("moment_2D_Int_therm_all", "choose type 'exact', 'recoil', 'doppler', 'ur'", 1);
+    d.thermal_kernel_ptr=Get_kernel_pointer(type, "moment_2D_Int_therm_all");
 
     // rough estimate for width of averaged kernel
     double Dnu_nu2=sqrt(2.0*theta+7.0/5.0*omega0*omega0);
@@ -409,7 +399,8 @@ double moment_2D_Int_therm_all(double omega0, int k, double theta, string type)
     double b=min(omega0*(1.0+30.0*Dnu_nu2), omega0*1.0e+8);
 
     double epsrel=1.0e-8, epsabs=1.0e-50;
-    return Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_moments_all, &d);
+    return Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs,
+                                              integrand_moments_all, &d);
 }
 
 //==================================================================================================
@@ -423,14 +414,17 @@ struct Integration_2Ddata_moments
     double theta;           // temperature
     int k;                  // order of moment
     double (*kernel_ptr)(double, double, double);
-    
+    bool use_stim;
+
     Integration_2Ddata_moments()
     {
         kernel_ptr=NULL;
         k=0;
+        use_stim=0;
     }
 };
 
+//==================================================================================================
 double integrand_moments_all_o(double lgomega, void *q)
 {
     Integration_2Ddata_moments *d=(Integration_2Ddata_moments *)q;
@@ -438,8 +432,9 @@ double integrand_moments_all_o(double lgomega, void *q)
     double omega=exp(lgomega);
     double K=d->kernel_ptr(d->omega0, d->p0, omega);
     double Dnu_nuk=pow(omega/d->omega0-1.0, d->k);
-    
-    return omega*K*Dnu_nuk;
+    double stim=(d->use_stim ? one_minus_exp_mx(d->omega0/d->theta)/one_minus_exp_mx(omega/d->theta) : 1.0);
+
+    return omega*K*Dnu_nuk*stim;
 }
  
 double integrand_moments_all_p(double lgp0, void *q)
@@ -447,33 +442,31 @@ double integrand_moments_all_p(double lgp0, void *q)
     Integration_2Ddata_moments *d=(Integration_2Ddata_moments *)q;
     d->p0=exp(lgp0);
     
-    double a=omegamin(d->omega0, d->p0);
+    double a=max(1.0e-16, omegamin(d->omega0, d->p0));
     double b=omegamax(d->omega0, d->p0);
     double fac=mb_dist_func(d->p0, d->theta) * pow(d->p0, 3);
 
     double epsrel=1.0e-9, epsabs=1.0e-100;
-    return fac*Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_moments_all_o, &(*d));
+    return fac*Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs,
+                                                  integrand_moments_all_o, &(*d));
 }
  
-double moment_2D_Int_therm_all_II(double omega0, int k, double theta, string type)
+//==================================================================================================
+double moment_2D_Int_therm_all_II(double omega0, int k, double theta, string type, bool stim)
 {
     Integration_2Ddata_moments d;
     d.omega0=omega0;
     d.theta=theta;
     d.k=k;
-    
-    // do mapping of function pointers outside of integral
-    if(type=="exact"){ d.kernel_ptr = kernel_exact; }
-    else if(type=="recoil"){ d.kernel_ptr = kernel_recoil; }
-    else if(type=="doppler"){ d.kernel_ptr = kernel_doppler; }
-    else if(type=="ur"){ d.kernel_ptr = kernel_ur; }
-    else throw_error("moment_2D_Int_therm_all_II", "choose type 'exact', 'recoil', 'doppler', 'ur'", 1);
+    d.use_stim=stim;
+    d.kernel_ptr=Get_kernel_pointer(type, "moment_2D_Int_therm_all_II");
 
     double a=sqrt(2.0*theta)*1.0e-8;
     double f=30.0, b=sqrt((2.0+f*theta)*f*theta);
 
     double epsrel=1.0e-8, epsabs=1.0e-50;
-    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_moments_all_p, &d);
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs,
+                                                integrand_moments_all_p, &d);
     return r/mb_dist_norm(theta);
 }
 
@@ -498,32 +491,29 @@ double G_integrand_moments_all_p(double lgp0, void *q)
     Integration_2Ddata_moments *d=(Integration_2Ddata_moments *)q;
     d->p0=exp(lgp0);
     
-    double a=omegamin(d->omega0, d->p0);
+    double a=max(1.0e-16, omegamin(d->omega0, d->p0));
     double b=omegamax(d->omega0, d->p0);
     double fac=mb_dist_func(d->p0, d->theta) * pow(d->p0, 3);
 
     double epsrel=1.0e-8, epsabs=1.0e-50;
-    return fac*Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, G_integrand_moments_all_o, &(*d));
+    return fac*Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs,
+                                                  G_integrand_moments_all_o, &(*d));
 }
  
+//==================================================================================================
 double G_moment_2D_Int_therm_all_II(double omega0, double theta, string type)
 {
     Integration_2Ddata_moments d;
     d.omega0=omega0;
     d.theta=theta;
-    
-    // do mapping of function pointers outside of integral
-    if(type=="exact"){ d.kernel_ptr = kernel_exact; }
-    else if(type=="recoil"){ d.kernel_ptr = kernel_recoil; }
-    else if(type=="doppler"){ d.kernel_ptr = kernel_doppler; }
-    else if(type=="ur"){ d.kernel_ptr = kernel_ur; }
-    else throw_error("G_moment_2D_Int_therm_all_II", "choose type 'exact', 'recoil', 'doppler', 'ur'", 1);
+    d.kernel_ptr=Get_kernel_pointer(type, "G_moment_2D_Int_therm_all_II");
 
     double a=sqrt(2.0*theta)*1.0e-8;
     double f=30.0, b=sqrt((2.0+f*theta)*f*theta);
 
     double epsrel=1.0e-8, epsabs=1.0e-50;
-    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, G_integrand_moments_all_p, &d);
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs,
+                                                G_integrand_moments_all_p, &d);
     return r/mb_dist_norm(theta);
 }
 
@@ -552,7 +542,9 @@ void compute_all_FP_coefficients(double omega0, double theta, string type,
     
     A=x*x*Sigma2/2.0/theta;
     B=x*(4.0*Sigma2-Sigma1+omega0*dSigma2_domega0)/theta;
-    C=(3.0*(2.0*Sigma2-Sigma1)+omega0*(4.0*dSigma2_domega0-dSigma1_domega0)+omega0*omega0*d2Sigma2_domega02/2.0)/theta;
+    C=(3.0*(2.0*Sigma2-Sigma1)
+          +omega0*(4.0*dSigma2_domega0-dSigma1_domega0)
+          +omega0*omega0*d2Sigma2_domega02/2.0)/theta;
 
 //    C=(3.0*(2.0*Sigma2-Sigma1))/theta;
 //    C=(omega0*omega0*d2Sigma2_domega02)/theta;

@@ -1,6 +1,4 @@
 //==================================================================================================
-//  CSpack_functions.h
-//
 //  Created by Abir Sarkar on 15/11/2019 and modified by JC. These functions are based on
 //  Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
 //==================================================================================================
@@ -8,7 +6,7 @@
 #ifndef CSpack_functions_hpp
 #define CSpack_functions_hpp
 
-namespace CSpack_functions{
+namespace CSpack_functions {
 
 //==================================================================================================
 // Common simple functions
@@ -43,6 +41,7 @@ double kappa(double omega0,  double omega, double p0, double p);
 double mb_dist_func(double p, double theta);
 double mb_dist_norm(double theta);
 double rel_mb_dist(double p, double theta);
+double pbar(double theta);
 
 //==================================================================================================
 // functions for Moments
@@ -50,6 +49,12 @@ double rel_mb_dist(double p, double theta);
 double alphap(double omega0, double p0);
 double alpham(double omega0, double p0);
 double f_moment(double omega0, double p0);
+
+//==================================================================================================
+// spectral functions for use with blackbody radiation
+//==================================================================================================
+double one_minus_exp_mx(double x);                   // == 1-exp(-x)
+double nbb_func(double x);                           // == 1/(exp(x)-1)
 
 }
 

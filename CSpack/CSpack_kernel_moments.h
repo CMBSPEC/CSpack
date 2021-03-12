@@ -1,6 +1,4 @@
 //==================================================================================================
-//  CSpack_kernel_moments.h
-//
 //  Created by Abir Sarkar on 15/11/2019 and modified by JC. These functions are based on
 //  Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
 //==================================================================================================
@@ -12,7 +10,7 @@
 
 using namespace std;
 
-namespace CSpack_kernel_moments{
+namespace CSpack_kernel_moments {
 
 //==================================================================================================
 //  MOMENT
@@ -35,7 +33,7 @@ double moment_Int_app3(double omega0, int l, double theta);
 // THERMALLY AVERAGED MOMENTS using 2D integration
 //==================================================================================================
 double moment_2D_Int_therm_all(double omega0, int k, double theta, string type); // JC: not as precise
-double moment_2D_Int_therm_all_II(double omega0, int k, double theta, string type);
+double moment_2D_Int_therm_all_II(double omega0, int k, double theta, string type, bool stim=0);
 
 //==================================================================================================
 // obtain coefficients for FP approximation dn/dy= A(x)*d^2n/dx^2 + B(x)*dn/dx + C(x)*n
