@@ -15,6 +15,8 @@ using namespace std;
 
 namespace CSpack_scattering_matrix {
 
+void set_verbosity(int verb=0);
+
 //==================================================================================================
 // Routines for scattering matrix setups
 //--------------------------------------------------------------------------------------------------

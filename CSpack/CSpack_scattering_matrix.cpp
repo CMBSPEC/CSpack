@@ -13,6 +13,10 @@ using namespace CSpack_kernels;
 
 namespace CSpack_scattering_matrix {
 
+int verbosity_scat_matrix=0;
+
+void set_verbosity(int verb){ verbosity_scat_matrix=verb; return; }
+
 //==================================================================================================
 // Routines for scattering matrix setups
 //--------------------------------------------------------------------------------------------------
@@ -33,7 +37,8 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                vector<Kernel_representation> &KR,
                                double epsilon, bool stim)
 {
-    cout << " compute_scattering_matrix_thresh :: setting up scattering matrix." << endl;
+    if(verbosity_scat_matrix>0)
+        cout << " compute_scattering_matrix :: setting up scattering matrix for The= " << theta << endl;
 
     int npx=xarr.size();
 
@@ -90,7 +95,8 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         }
     }
 
-    cout << " compute_scattering_matrix_thresh :: done." << endl;
+    if(verbosity_scat_matrix>0)
+        cout << " compute_scattering_matrix :: done." << endl << endl;
 }
 
 //==================================================================================================
@@ -110,9 +116,14 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                vector<vector<double> > &Msc,
                                double epsilon)
 {
-    cout << " compute_scattering_matrix_thresh :: setting up scattering matrix." << endl;
+    if(verbosity_scat_matrix>0)
+        cout << " compute_scattering_matrix :: setting up scattering matrix for The= " << theta << endl;
 
     int npx=xarr.size();
+
+    //double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_exact;
+    double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_SS_K;
+    //double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_SS_C;
 
     // create matrix
     if((int)Msc.size()!=npx)
@@ -133,7 +144,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         double omega_fac=Int_wi[i] * theta; // dnu' weight
         double om0=xarr[i]*theta;
         // diagonal element for reference
-        Msc[i][i]= thermal_kernel_exact(om0, om0, theta) * omega_fac;
+        Msc[i][i]= kernel(om0, om0, theta) * omega_fac;
 
         for(int j=i+1; j<npx; j++) //xp>x
         {
@@ -141,7 +152,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
             double omp=xarr[j]*theta;
 
             // P(nu-->nu') here for all pairs i == col and j == row
-            Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
+            Msc[i][j]= kernel(om0, omp, theta) * omega_fac;
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }
@@ -152,13 +163,17 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
             double omp=xarr[j]*theta;
 
             // P(nu-->nu') here for all pairs i == col and j == row
-            Msc[i][j]= thermal_kernel_exact(om0, omp, theta) * omega_fac;
+            Msc[i][j]= kernel(om0, omp, theta) * omega_fac;
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }
     }
+#ifdef OPENMP_ACTIVATED
+#pragma omp barrier
+#endif
 
-    cout << " compute_scattering_matrix_thresh :: done." << endl;
+    if(verbosity_scat_matrix>0)
+        cout << " compute_scattering_matrix :: done." << endl << endl;
 }
 
 //==================================================================================================

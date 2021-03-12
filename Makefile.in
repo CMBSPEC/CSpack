@@ -65,7 +65,8 @@ LIBS    = -L/usr/local/lib/ -L/opt/local/lib/ \
 # object files
 #===============================================================================
 OBJSDEV = $(TOOLS_DIR)/Simple_routines/routines.o \
-	   $(TOOLS_DIR)/Simple_routines/parser.o \
+       $(TOOLS_DIR)/Simple_routines/parser.o \
+	   $(TOOLS_DIR)/Compton_Kernel/Compton_Kernel.o \
 	   $(TOOLS_DIR)/Integration/Patterson.o
 
 OBJSCS = ./CSpack/CSpack_functions.o \
@@ -107,7 +108,8 @@ CSpacklib: $(OBJS)
 
 INC_PATH = -I./CSpack -I$(TOOLS_DIR)/Definitions \
 	   -I$(TOOLS_DIR)/Integration \
-	   -I$(TOOLS_DIR)/Simple_routines \
+       -I$(TOOLS_DIR)/Compton_Kernel \
+       -I$(TOOLS_DIR)/Simple_routines \
        -I/usr/local/include/ -I/opt/local/include/ \
        -I$(GSL_INC_PATH) -I.
 

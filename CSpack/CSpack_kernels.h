@@ -37,8 +37,14 @@ double thermal_kernel_recoil(double omega0, double omega, double theta);
 double thermal_kernel_doppler(double omega0, double omega, double theta);
 double thermal_kernel_ur(double omega0, double omega, double theta);
 
+//==================================================================================================
+// kernels from Sazonov & Sunyaev 2000
+//==================================================================================================
+double thermal_kernel_SS_K(double omega0, double omega, double theta);
+double thermal_kernel_SS_C(double omega0, double omega, double theta);
+
 //--------------------------------------------------------------------------------------------------
-//type == 'exact', 'recoil', 'doppler', 'ur'
+// type == 'exact', 'recoil', 'doppler', 'ur', 'SS_K', 'SS_C'
 //--------------------------------------------------------------------------------------------------
 double thermal_kernel_all(double omega0, double omega, double theta, string type);
 

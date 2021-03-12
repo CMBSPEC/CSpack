@@ -33,6 +33,7 @@ cleanallDEV:
 	rm -f $(TOOLS_DIR)/*.o $(TOOLS_DIR)/*.~
 	rm -f $(TOOLS_DIR)/Definitions/*.o $(TOOLS_DIR)/Definitions/*.~
 	rm -f $(TOOLS_DIR)/Simple_routines/*.o $(TOOLS_DIR)/Simple_routines/*.~
+	rm -f $(TOOLS_DIR)/Compton_Kernel/*.o $(TOOLS_DIR)/Compton_Kernel/*.~
 	rm -f $(TOOLS_DIR)/Integration/*.o $(TOOLS_DIR)/Integration/*~
 
 tidy:

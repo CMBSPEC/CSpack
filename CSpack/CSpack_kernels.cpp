@@ -5,6 +5,7 @@
 
 #include "routines.h"
 #include "Patterson.h"
+#include "Compton_Kernel.h"
 
 #include "CSpack.h"
 
@@ -195,6 +196,9 @@ double integrand_p_all(double lp, void *q)
  
 double thermal_kernel_all(double omega0, double omega, double theta, string type)
 {
+    if(type=="SS_K") return PK_Kernel(omega0/const_h_mec2, omega/const_h_mec2, theta)/const_h_mec2;
+    else if(type=="SS_C") return P_Compton(omega0/const_h_mec2, omega/const_h_mec2, theta)/const_h_mec2;
+
     double epsrel=1.0e-9, epsabs=1.0e-100;
     double pmax = sqrt( (theta*log(1.0e-30) - 2.0)*theta*log(1.0e-30) );
     double pb=pbar(theta);
@@ -233,6 +237,19 @@ double thermal_kernel_doppler(double omega0, double omega, double theta)
 double thermal_kernel_ur(double omega0, double omega, double theta)
 {
     return thermal_kernel_all(omega0, omega, theta, "ur");
+}
+
+//==================================================================================================
+// kernels from Sazonov & Sunyaev 2000
+//==================================================================================================
+double thermal_kernel_SS_K(double omega0, double omega, double theta)
+{
+    return thermal_kernel_all(omega0, omega, theta, "SS_K");
+}
+
+double thermal_kernel_SS_C(double omega0, double omega, double theta)
+{
+    return thermal_kernel_all(omega0, omega, theta, "SS_C");
 }
 
 }
