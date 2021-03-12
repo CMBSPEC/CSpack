@@ -11,6 +11,9 @@ using namespace std;
 using namespace CSpack_functions;
 using namespace CSpack_kernels;
 
+//==================================================================================================
+// main functions in namespace
+//==================================================================================================
 namespace CSpack_scattering_matrix {
 
 int verbosity_scat_matrix=0;
@@ -18,18 +21,100 @@ int verbosity_scat_matrix=0;
 void set_verbosity(int verb){ verbosity_scat_matrix=verb; return; }
 
 //==================================================================================================
+// weights using f(x) = L(x) [5 point Lagrange polynomial] and integrating over
+// x in [xa, xb] around xj
+//==================================================================================================
+double Int_li_xj_II(double x1, double x2, double x3, double x4, double xj,
+                    double xa, double xb)
+{
+    double r=(pow(xb, 5)-pow(xa, 5))/5.0;
+    r+=-(x1+x2+x3+x4)/4.0 * (pow(xb, 4)-pow(xa, 4));
+    r+=(x1*(x2+x3+x4)+x2*(x3+x4)+x3*x4)/3.0 * (pow(xb, 3)-pow(xa, 3));
+    r+=-(x1*(x2*x3+x2*x4+x3*x4)+x2*x3*x4)/2.0 * (xb-xa) * (xb+xa);
+    r+= x1*x2*x3*x4 * (xb-xa);
+
+    return r /(x1-xj)/(x2-xj)/(x3-xj)/(x4-xj);
+}
+
+double Int_li_xj_II(int j, int k, vector<double> &xi)
+{
+    //    double xa=(xi[j]+xi[j-1])/2.0, xb=(xi[j+1]+xi[j])/2.0;
+    double xa=xi[j], xb=xi[j+1];
+    double x1, x2, x3, x4;
+
+    if(k==-2){ x1=xi[j-1]; x2=xi[j]; x3=xi[j+1]; x4=xi[j+2]; }
+    else if(k==-1){ x1=xi[j-2]; x2=xi[j]; x3=xi[j+1]; x4=xi[j+2]; }
+    else if(k== 0){ x1=xi[j-2]; x2=xi[j-1]; x3=xi[j+1]; x4=xi[j+2]; }
+    else if(k== 1){ x1=xi[j-2]; x2=xi[j-1]; x3=xi[j]; x4=xi[j+2]; }
+    else if(k== 2){ x1=xi[j-2]; x2=xi[j-1]; x3=xi[j]; x4=xi[j+1]; }
+    else { return 0.0; }
+
+    double r=Int_li_xj_II(x1, x2, x3, x4, xi[j+k], xa, xb);
+
+    return r;
+}
+
+//==================================================================================================
+void Integral_weights_trapz(vector<double> &xarr, vector<double> &Int_wi)
+{
+    int np=xarr.size();
+    Int_wi.resize(np, 0.0);
+
+    //================================================================
+    // initial points around lower boundary
+    //================================================================
+    int ix=0;
+    Int_wi[ix]+=(xarr[ix+1]-xarr[ix])/2.0; ix++;
+    for(; ix<np-1; ix++) Int_wi[ix]+=(xarr[ix+1]-xarr[ix-1])/2.0;
+    Int_wi[ix]+=(xarr[ix]-xarr[ix-1])/2.0;
+
+    return;
+}
+
+//==================================================================================================
+void Integral_weights(vector<double> &xarr, vector<double> &Int_wi)
+{
+    int np=xarr.size();
+    Int_wi.resize(np, 0.0);
+
+    //================================================================
+    // initial points around lower boundary
+    //================================================================
+    int ix=0;
+    Int_wi[ix]+=(xarr[ix+1]-xarr[ix])/2.0; ix++;
+    for(; ix<2; ix++) Int_wi[ix]+=(xarr[ix+1]-xarr[ix-1])/2.0;
+    Int_wi[ix]+=(xarr[ix]-xarr[ix-1])/2.0;
+
+    //================================================================
+    // internal points with 5-point formula
+    //================================================================
+    for(ix=2; ix<np-3; ix++)
+        for(int k=-2; k<3; k++) Int_wi[ix+k]+=Int_li_xj_II(ix, k, xarr);
+
+    //================================================================
+    // finish off using simple trapeziodal rule
+    //================================================================
+    Int_wi[ix]+=(xarr[ix+1]-xarr[ix])/2.0; ix++;
+    for(; ix<np-1; ix++) Int_wi[ix]+=(xarr[ix+1]-xarr[ix-1])/2.0;
+    Int_wi[ix]+=(xarr[ix]-xarr[ix-1])/2.0;
+
+    return;
+}
+
+//==================================================================================================
 // Routines for scattering matrix setups
 //--------------------------------------------------------------------------------------------------
-// inputs:
-// xarr  : contains frequency grid points x=h nu/kTe = omega/theta
-// theta : kTe/mc^2
-// Int_wi: Integral weight factors to turn int f(x) dx == sum Int_wi f(xi)
+// inputs :
+// xarr   : contains frequency grid points x=h nu/kTe = omega/theta
+// theta  : kTe/mc^2
+// Int_wi : Integral weight factors to turn int f(x) dx == sum Int_wi f(xi)
 // nK     : defines number of points per kernel wing for Kernel-representation method
 //
 // outputs: Msc = wj Pij theta
 //          KR  = setup Kernel_representation vector on given grid and temperature
 //
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
+// stim   : include stimulated factors from blackbody in moments
 //==================================================================================================
 void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                const vector<double> &Int_wi, int nK,
@@ -109,11 +194,13 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
 //
 // outputs: Msc = wj Pij theta
 //
+// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
 //==================================================================================================
 void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                const vector<double> &Int_wi,
                                vector<vector<double> > &Msc,
+                               string type,
                                double epsilon)
 {
     if(verbosity_scat_matrix>0)
@@ -121,9 +208,12 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
 
     int npx=xarr.size();
 
-    //double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_exact;
-    double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_SS_K;
-    //double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_SS_C;
+    double (*kernel)(double omega0, double omega, double theta);
+
+    if(type=="exact") kernel=thermal_kernel_exact;
+    else if(type=="SS_K") kernel=thermal_kernel_SS_K;
+    else if(type=="SS_C") kernel=thermal_kernel_SS_C;
+    else throw_error("compute_scattering_matrix", "kernel type not available", 1);
 
     // create matrix
     if((int)Msc.size()!=npx)
@@ -217,5 +307,111 @@ void compute_sigma_tot(const vector<double> &xarr,
 
 }
 
+//==================================================================================================
+// global memory that is required for C part of the routines
+//==================================================================================================
+vector<vector<double> > _global_Msc_temp;
+vector<Kernel_representation> _global_KR_temp;
+
+//==================================================================================================
+// C versions of the scattering matrix setup
+//==================================================================================================
+extern "C" {
+
+//==================================================================================================
+// computes weights to turn int f(x) dx == sum Int_wi f(xi) on the grid given by xarr
+//--------------------------------------------------------------------------------------------------
+// inputs  :
+// *xarr   : pointer to frequency grid points x=h nu/kTe = omega/theta
+// npointsx: points in x
+//--------------------------------------------------------------------------------------------------
+// output  :
+// *Int_wi : pointer to Integral weight factors to turn int f(x) dx == sum Int_wi f(xi).
+//--------------------------------------------------------------------------------------------------
+// comment : Memory has to be allocated before calling the function
+//==================================================================================================
+void Integral_weights(const double *xarr, int npointsx, double *Int_wi)
+{
+    vector<double> vecx(npointsx), vecw;
+    for(int i=0; i<npointsx; i++) vecx[i]=xarr[i];
+
+    //CSpack_scattering_matrix::Integral_weights_trapz(vecx, vecw); // simplest rule
+    CSpack_scattering_matrix::Integral_weights(vecx, vecw); // 5 points rule [more accurate]
+
+    for(int i=0; i<npointsx; i++) Int_wi[i]=vecw[i];
+
+    return;
+}
+
+//==================================================================================================
+// Routine for scattering matrix setup using explicit computation but with threshold
+//--------------------------------------------------------------------------------------------------
+// inputs  :
+// *xarr   : pointer to frequency grid points x=h nu/kTe = omega/theta
+// *Int_wi : pointer to Integral weight factors to turn int f(x) dx == sum Int_wi f(xi)
+// npointsx: points in x
+// theta   : kTe/mc^2
+// type    : type of kernel to be used explicitly [0: 'exact', 1: 'SS_K', 2: 'SS_C']
+// epsilon : optional parameter to compress matrix density [eps<1.0e-4 recommended]
+//--------------------------------------------------------------------------------------------------
+// outputs : Msc = wj Pij theta
+//--------------------------------------------------------------------------------------------------
+// comment : Memory has to be allocated before calling the function
+//==================================================================================================
+void compute_scattering_matrix_explicit(const double *xarr, const double *Int_wi, int npointsx,
+                                        double theta, int kernel_type, double epsilon,
+                                        double **Msc)
+{
+    vector<double> vecx(npointsx), vecw(npointsx);
+    for(int i=0; i<npointsx; i++){ vecx[i]=xarr[i]; vecw[i]=Int_wi[i]; }
+
+    string type;
+    if(kernel_type==0) type="exact";
+    else if(kernel_type==1) type="SS_K";
+    else if(kernel_type==2) type="SS_C";
+
+    CSpack_scattering_matrix::compute_scattering_matrix(vecx, theta, vecw,
+                                                        _global_Msc_temp,
+                                                        type, epsilon);
+
+    for(int i=0; i<npointsx; i++)
+        for(int j=0; j<npointsx; j++) Msc[i][j]=_global_Msc_temp[i][j];
+
+    return;
+}
+
+//==================================================================================================
+// Routine for scattering matrix setup using kernel representation routines
+//--------------------------------------------------------------------------------------------------
+// inputs  :
+// *xarr   : pointer to frequency grid points x=h nu/kTe = omega/theta
+// *Int_wi : pointer to Integral weight factors to turn int f(x) dx == sum Int_wi f(xi)
+// npointsx: points in x
+// nK      : defines number of points per kernel wing for Kernel-representation method
+// theta   : kTe/mc^2
+// epsilon : optional parameter to compress matrix density [eps<1.0e-4 recommended]
+//--------------------------------------------------------------------------------------------------
+// outputs : Msc = wj Pij theta
+//--------------------------------------------------------------------------------------------------
+// comment : Memory has to be allocated before calling the function
+//==================================================================================================
+void compute_scattering_matrix_KR(const double *xarr, const double *Int_wi, int npointsx,
+                                  int nK, double theta, double epsilon,
+                                  double **Msc)
+{
+    vector<double> vecx(npointsx), vecw(npointsx);
+    for(int i=0; i<npointsx; i++){ vecx[i]=xarr[i]; vecw[i]=Int_wi[i]; }
+
+    CSpack_scattering_matrix::compute_scattering_matrix(vecx, theta, vecw, nK,
+                                                        _global_Msc_temp, _global_KR_temp,
+                                                        epsilon, 0);
+
+    for(int i=0; i<npointsx; i++)
+        for(int j=0; j<npointsx; j++) Msc[i][j]=_global_Msc_temp[i][j];
+
+    return;
+}
+
+}
 //==================================================================================================
 //==================================================================================================

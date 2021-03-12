@@ -18,6 +18,12 @@ namespace CSpack_scattering_matrix {
 void set_verbosity(int verb=0);
 
 //==================================================================================================
+// integral weights for scattering matrix
+//==================================================================================================
+void Integral_weights_trapz(vector<double> &xarr, vector<double> &Int_wi);
+void Integral_weights(vector<double> &xarr, vector<double> &Int_wi);
+
+//==================================================================================================
 // Routines for scattering matrix setups
 //--------------------------------------------------------------------------------------------------
 // inputs:
@@ -30,6 +36,7 @@ void set_verbosity(int verb=0);
 //          KR  = setup Kernel_representation vector on given grid and temperature
 //
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
+// stim   : include stimulated factors from blackbody in moments
 //==================================================================================================
 void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                const vector<double> &Int_wi, int nK,
@@ -47,11 +54,13 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
 //
 // outputs: Msc = wj Pij theta
 //
+// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
 //==================================================================================================
 void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                const vector<double> &Int_wi,
                                vector<vector<double> > &Msc,
+                               string type="exact",
                                double epsilon=1.0e-40);
 
 //==================================================================================================
