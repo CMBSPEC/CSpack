@@ -330,7 +330,7 @@ extern "C" {
 //--------------------------------------------------------------------------------------------------
 // comment : Memory has to be allocated before calling the function
 //==================================================================================================
-void Integral_weights(const double *xarr, int npointsx, double *Int_wi)
+void Integral_weights(const double *xarr, double *Int_wi, int npointsx)
 {
     vector<double> vecx(npointsx), vecw;
     for(int i=0; i<npointsx; i++) vecx[i]=xarr[i];
