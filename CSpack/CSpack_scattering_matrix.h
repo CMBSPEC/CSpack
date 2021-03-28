@@ -155,6 +155,7 @@ private:
 
     int logdens_The, npThe;
     double The_min, The_max, The_curr;
+    double eps_interpol;                           // The threshold that decides about interpolation
 
     vector<double> The_arr;
     vector<vector<double> > Msc_full;
@@ -169,15 +170,17 @@ public:
 
     //==============================================================================================
     ~Msc_representation_Te(){};
-    Msc_representation_Te(){ npThe=0; Msc_The.resize(0); };
+    Msc_representation_Te(){ npThe=0; Msc_The.resize(0); eps_interpol=1.0e-4; };
     Msc_representation_Te(const vector<double> &xearr,
                           const vector<double> &Int_wi,
-                          double The_min, double The_max, int logdens_The, double eps_thresh,
+                          double The_min, double The_max, int logdens_The,
+                          double eps_thresh, double eps_interpol,
                           string type="SS_C", int maxMom=0, bool stimMom=0);
 
     void init(const vector<double> &xearr,
               const vector<double> &Int_wi,
-              double The_min, double The_max, int logdens_The, double eps_thresh,
+              double The_min, double The_max, int logdens_The,
+              double eps_thresh, double eps_interpol,
               string type="SS_C", int maxMom=0, bool stimMom=0);
 
     double Msc(int i, int j, double The);

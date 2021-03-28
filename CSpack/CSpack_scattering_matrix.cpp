@@ -492,10 +492,13 @@ double Msc_representation::Get_Sigmak(int k, int i)
 Msc_representation_Te :: Msc_representation_Te(const vector<double> &xearr,
                                                const vector<double> &Int_wi,
                                                double The_min, double The_max, int logdens_The,
-                                               double eps_thresh,
+                                               double eps_thresh, double eps_interpol,
                                                string type, int maxMom, bool stimMom)
 {
-    init(xearr, Int_wi, The_min, The_max, logdens_The, eps_thresh, type, maxMom, stimMom);
+    init(xearr, Int_wi,
+         The_min, The_max, logdens_The,
+         eps_thresh, eps_interpol,
+         type, maxMom, stimMom);
 }
 
 //==================================================================================================
@@ -522,13 +525,14 @@ double Msc_representation_Te::do_interpol(double lgx, const double *lgxa, const 
 //==================================================================================================
 void Msc_representation_Te :: init(const vector<double> &xearr,
                                    const vector<double> &Int_wi,
-                                   double The_min, double The_max,
-                                   int logdens_The, double eps_thresh,
+                                   double The_min, double The_max, int logdens_The,
+                                   double eps_thresh, double eps_interpol,
                                    string type, int maxMom, bool stimMom)
 {
     this->The_min=The_min;
     this->The_max=The_max;
     this->logdens_The=logdens_The;
+    this->eps_interpol=eps_interpol;
 
     npThe=init_xarr(The_min, The_max, The_arr, logdens_The, 1);
 
@@ -579,7 +583,7 @@ double Msc_representation_Te :: Msc(int i, int j, double The)
 //==================================================================================================
 const ODE_solver_LA::ODE_solver_matrix& Msc_representation_Te :: Get_Msc(double The)
 {
-    if(The_curr!=The)
+    if(fabs(The_curr/The-1.0)>eps_interpol)
     {
         The_curr=The;
         Msc_sparse.clear();
