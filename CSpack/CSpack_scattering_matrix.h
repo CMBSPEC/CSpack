@@ -183,6 +183,8 @@ public:
               double eps_thresh, double eps_interpol,
               int maxMom=0, bool stimMom=0);
 
+    int Get_npThe(){ return npThe; }
+
     double Msc(int i, int j, double The);
     const ODE_solver_LA::ODE_solver_matrix& Get_Msc(double The);
     void Get_Msc(double The, vector<vector<double> > &Msc);   // copy into standard full matrix

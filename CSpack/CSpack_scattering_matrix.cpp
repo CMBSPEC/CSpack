@@ -554,9 +554,12 @@ double Msc_representation_Te :: Msc(int i, int j, unsigned int iT, double The)
     for(int ix=0; ix<4; ix++)
     {
         lgThe[ix]=log(The_arr[iT+ix]);
-        lgM  [ix]=log(Msc_The[iT+ix].Msc(i, j));
 
-        if(lgM[ix]==0.0) return 0.0; // if any of the matrix elements = 0 don't interpolate
+        double Mij=Msc_The[iT+ix].Msc(i, j);
+        if(Mij==0.0) return 0.0; // if any of the matrix elements = 0 don't interpolate
+
+        lgM[ix]=log(Mij);
+
     }
 
     return exp(do_interpol(log(The), lgThe, lgM));
