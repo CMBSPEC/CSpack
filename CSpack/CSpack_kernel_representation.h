@@ -38,9 +38,9 @@ public:
                           double eps_thresh, double eps_interpol,
                           int maxMom=0, bool stim=0);
 
-    //==================================================================================================
-    // for openmp runs this should be ran serial before the init call...
-    //==================================================================================================
+    //==============================================================================================
+    // for openmp runs this function should be ran serial before the init call...
+    //==============================================================================================
     void allocate_splines(int np);
 
     void init(double omin, double om0, double omax, int np, double The,
@@ -56,6 +56,42 @@ public:
     double Get_Mom(int k){ return (k<(int)Moments.size() ? Moments[k] : 0.0); }
     double Get_G(){ return G; }
     double Get_H(){ return H; }
+};
+
+//==================================================================================================
+//
+// Kernel representation class for multiple values of Theta
+//
+//==================================================================================================
+class Kernel_representation_Te : Kernel_representation
+{
+private:
+
+    int logdens_The, npThe;
+    double Theta_min, Theta_max;
+
+    vector<double> The_arr;
+    vector<Kernel_representation> Kernels_The; // Kernel data for various values of The
+
+    void init_Kernel_Table(double omin, double om0, double omax, int npom,
+                           double Theta_min, double Theta_max, int logdens_The,
+                           double eps_thresh, double eps_interpol,
+                           int maxMom, bool stim);
+
+    double lgThe[4], lgK[4], D[4], a[4];
+    double do_interpol(double lgx, const double *lgxa, const double *ya);
+
+public:
+
+    //==============================================================================================
+    ~Kernel_representation_Te(){};
+    Kernel_representation_Te(){ npThe=0; Kernels_The.resize(0); };
+    Kernel_representation_Te(double omin, double om0, double omax, int npom,
+                             double Theta_min, double Theta_max, int logdens_The,
+                             double eps_thresh, double eps_interpol,
+                             int maxMom=0, bool stim=0);
+
+    double Kernel(double om, double The);
 };
 
 #endif

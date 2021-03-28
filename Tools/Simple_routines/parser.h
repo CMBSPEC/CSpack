@@ -14,6 +14,7 @@
 
 #include <string>
 #include <vector>
+#include "routines.h"
 
 using namespace std;
 
@@ -27,14 +28,17 @@ struct file_content
 int parser_read_file(string filename, struct file_content &pfc, bool show_lines=0);
 int parser_free(struct file_content &pfc);
 
-// generic read of types like int, long int, double etc
-template <class T>
-int parser_read(const struct file_content &pfc, string var_id, T &val, bool &found, bool show_entry=0);
+int parser_read(const struct file_content &pfc, string var_id, int &val, bool &found, bool show_entry=0);
+int parser_read(const struct file_content &pfc, string var_id, double &val, bool &found, bool show_entry=0);
+int parser_read(const struct file_content &pfc, string var_id, string &val, bool &found, bool show_entry=0);
 
-// specific read of types
-int parser_read_int(const struct file_content &pfc, string var_id, int &val, bool &found, bool show_entry=0);
-int parser_read_double(const struct file_content &pfc, string var_id, double &val, bool &found, bool show_entry=0);
-int parser_read_string(const struct file_content &pfc, string var_id, string &val, bool &found, bool show_entry=0);
+int parser_dual_read(const struct file_content &pfc, string var_id_1, string var_id_2,
+                     int &val, bool &found_1, bool &found_2, bool show_entry);
+int parser_dual_read(const struct file_content &pfc, string var_id_1, string var_id_2,
+                     double &val, bool &found_1, bool &found_2, bool show_entry);
+int parser_dual_read(const struct file_content &pfc, string var_id_1, string var_id_2,
+                     string &val, bool &found_1, bool &found_2, bool show_entry);
+
 
 #endif
 

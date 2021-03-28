@@ -36,6 +36,7 @@ double Gamma_JC(const double &x, const double &a);   // incomplete Gamma-functio
 double Ei_JC(double x);             // Ei(x) = - E_1(x) = - int_{-x}^infty e^{-t}/t dt
 double ex_Ei_JC(double x);          // exp(x) Ei(x)
 
+double scaled_BesselK1(double x);   // modified Bessel function exp(x) K1(x)
 double scaled_BesselK2(double x);   // modified Bessel function exp(x) K2(x)
 
 double max(double a, double b);
@@ -46,6 +47,10 @@ double log10factorial(int n);
 double log10factorial_full(int n);
 double factorial_corrfac(int n);
 
+double one_minus_exp_mx(double x);                   // == 1-exp(-x)
+double nbb_func(double x);                           // == 1/(exp(x)-1)
+double nbbp1_func(double x);                         // == 1+nbb(x)
+
 //======================================================================================
 // checking for nan
 //======================================================================================
@@ -53,6 +58,7 @@ bool isnan_JC(double a);
 
 // simple error message
 void throw_error(string funcname, string message, int k=1);
+void throw_error(string funcname, string message, double val, int k=1);
 
 //======================================================================================
 // routines for interpolation; based in GSL
@@ -94,6 +100,11 @@ void polint_JC(const double *xa, const double *ya, int na, const double x, int &
 //======================================================================================
 void init_xarr(double x0, double xm, double *xarr, int npts, int method_flag, int mess_flg);
 void init_xarr(double x0, double xm, double *xarr, int npts, int method_flag);
+
+int init_xarr(double x0, double xm, vector<double> &xarr, int npts,
+              int method_flag, bool mess=0);
+
+int init_xarr(double x0, double xm, vector<double> &xarr, int logdens, bool mess=0);
 
 //======================================================================================
 void wait_f_r();
@@ -160,6 +171,18 @@ complex<double> LnLambda_func(complex<double> a, complex<double> b,
 
 double Harmonic_number_Re(double x);              // Re[H(i x)] is computed, x>0
 double Harmonic_number_Im(double x);              // Im[H(i x)] is computed, x>0
+
+//======================================================================================
+// Check variable range
+//======================================================================================
+bool check_xrange  (double x  , const vector<double> &xa  , bool show=1, string mess="x");
+bool check_lgxrange(double lgx, const vector<double> &lgxa, bool show=1, string mess="x");
+
+//======================================================================================
+// get index with x[i] < x assuming there is a constant grid
+// grid is in ascending order
+//======================================================================================
+unsigned int get_start_index_interpol(double x, const vector<double> &xa, int npol);
 
 #endif
 //======================================================================================

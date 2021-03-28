@@ -324,4 +324,88 @@ double Kernel_representation::compute_H(bool stim)
 }
 
 //==================================================================================================
+//
+// Kernel representation class for multiple values of Theta
+//
+//==================================================================================================
+void Kernel_representation_Te::init_Kernel_Table(double omin, double om0, double omax, int npom,
+                                                 double Theta_min, double Theta_max, int logdens_The,
+                                                 double eps_thresh, double eps_interpol,
+                                                 int maxMom, bool stim)
+{
+    this->Theta_min =Theta_min;
+    this->Theta_max =Theta_max;
+    this->logdens_The=logdens_The;
+
+    npThe=init_xarr(Theta_min, Theta_max, The_arr, logdens_The, 1);
+
+    Kernels_The.resize(npThe);
+
+    // allocate memory for splines (done in serial)
+    for(int k=0; k<npThe; k++) Kernels_The[k].allocate_splines(npom);
+
+#ifdef OPENMP_ACTIVATED
+#pragma omp parallel for default(shared) schedule(dynamic)
+#endif
+    for(int k=0; k<npThe; k++) Kernels_The[k].init(omin, om0, omax, npom, The_arr[k],
+                                                   eps_thresh, eps_interpol, maxMom, stim);
+}
+
+
+Kernel_representation_Te::Kernel_representation_Te(double omin, double om0, double omax, int npom,
+                                                   double Theta_min, double Theta_max, int logdens_The,
+                                                   double eps_thresh, double eps_interpol,
+                                                   int maxMom, bool stim)
+{
+    init_Kernel_Table(omin, om0, omax, npom,
+                      Theta_min, Theta_max, logdens_The,
+                      eps_thresh, eps_interpol, maxMom, stim);
+}
+
+//==================================================================================================
+// workhorse for interpolation accross The
+//==================================================================================================
+double Kernel_representation_Te::do_interpol(double lgx, const double *lgxa, const double *ya)
+{
+    //===========================================================================
+    // output with 4 point interpolation
+    //===========================================================================
+    double DD3=pow(lgxa[1]-lgxa[0], 3), r=0.0;
+
+    for(int m=0; m<4; m++) D[m]=lgx-lgxa[m];
+
+    a[0]= D[1]*D[2]*D[3]/(-6.0*DD3);
+    a[1]= D[0]*D[2]*D[3]/( 2.0*DD3);
+    a[2]= D[0]*D[1]*D[3]/(-2.0*DD3);
+    a[3]= D[0]*D[1]*D[2]/( 6.0*DD3);
+
+    for(int m=0; m<4; m++) r+=a[m]*ya[m];
+    return r;
+}
+
+//==================================================================================================
+// return kernel value for om0 -> om and The
+//==================================================================================================
+double Kernel_representation_Te::Kernel(double om, double The)
+{
+    if(npThe==0) throw_error("Kernel_representation_Te::Kernel", "kernel data not set", 1);
+
+    bool show=0;
+    bool rangeok=check_xrange(The, The_arr, show, "The");
+    if(!rangeok) throw_error("Kernel_representation_Te::Kernel", "The outside of range", 2);
+
+    // find index around The
+    unsigned int intj=get_start_index_interpol(The, The_arr, 4);
+
+    // store interpolation data
+    for(int ix=0; ix<4; ix++)
+    {
+        lgThe[ix]=log(The_arr[intj+ix]);
+        lgK  [ix]=log(Kernels_The[intj+ix].Kernel(om));
+    }
+
+    return exp(do_interpol(log(The), lgThe, lgK));
+}
+
+//==================================================================================================
 //==================================================================================================
