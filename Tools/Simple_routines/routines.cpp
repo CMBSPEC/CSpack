@@ -312,8 +312,25 @@ double factorial_corrfac(int n)
                  );
 }
 
+double scaled_BesselK1(double x)   // modified Bessel function exp(x) K1(x)
+{ return gsl_sf_bessel_Kn_scaled(1, x); }
+
 double scaled_BesselK2(double x)   // modified Bessel function exp(x) K2(x)
 { return gsl_sf_bessel_Kn_scaled(2, x); }
+
+//======================================================================================
+double one_minus_exp_mx(double x)
+{
+    //==================================================================================
+    // for small x use series expansion for 1-exp(-x)
+    //==================================================================================
+    if(x<=0.001) return x*(1.0+(-0.5+(1.0/6+(-1.0/24+(1.0/120-1.0/720*x)*x)*x)*x)*x);
+    else return 1.0-exp(-x);
+}
+
+double nbb_func(double x){ return exp(-x)/one_minus_exp_mx(x); }      // == 1/[exp(x)-1]
+
+double nbbp1_func(double x){ return 1.0/one_minus_exp_mx(x); }        // == 1+nbb(x)
 
 //======================================================================================
 // checking for nan
@@ -334,35 +351,56 @@ void throw_error(string funcname, string message, int k)
     exit(k);
 }
 
+void throw_error(string funcname, string message, double val, int k)
+{
+    cerr << " " << funcname << " : " << message << val << endl;
+    exit(k);
+}
+
 //===================================================================================
 //
 // Spline interpolation using the GSL libray
 //
 //===================================================================================
 vector<bool> allocvec;
+vector<int> empty_spots;
 vector<string> strvec;
 vector<gsl_interp_accel *> accvec; 
 vector<gsl_spline *> splinevec; 
 
 int calc_spline_coeffies_JC(int nxi, const double *za, const double *ya, string variable)
 {
-    if(variable=="") strvec.push_back("variable name was not given");
-    else strvec.push_back(variable);
+    // find free spot
+    int element;
+
+    if(empty_spots.size()>0)
+    {
+        element=empty_spots.back();
+        empty_spots.pop_back();
+    }
+    else
+    {
+        strvec.push_back("");
+
+        gsl_interp_accel *acc;
+        gsl_spline *spline;
+
+        accvec.push_back(acc);
+        splinevec.push_back(spline);
+
+        allocvec.push_back(1);
+        element=allocvec.size()-1;
+    }
+
+    if(variable=="") strvec[element]="variable name was not given";
+    else strvec[element]=variable;
     
-    gsl_interp_accel *acc;
-    accvec.push_back(acc);
-    //
-    gsl_spline *spline;
-    splinevec.push_back(spline);
-    //
-    int element=splinevec.size()-1;
-    
-    accvec[element]=gsl_interp_accel_alloc();
+    accvec   [element]=gsl_interp_accel_alloc();
     splinevec[element]=gsl_spline_alloc(gsl_interp_cspline, nxi);
     
-    gsl_spline_init (splinevec[element], za, ya, nxi);
+    gsl_spline_init(splinevec[element], za, ya, nxi);
     
-    allocvec.push_back(1);
+    allocvec[element]=1;
     
     return element;
 }
@@ -375,10 +413,10 @@ void update_spline_coeffies_JC(int memindex, int nxi,
     if(allocvec[memindex])
     {
         if(variable!="") strvec[memindex]=variable;
-        gsl_spline_free (splinevec[memindex]);
-        gsl_interp_accel_free (accvec[memindex]);
+        gsl_spline_free(splinevec[memindex]);
+        gsl_interp_accel_free(accvec[memindex]);
         
-        accvec[memindex]=gsl_interp_accel_alloc();
+        accvec   [memindex]=gsl_interp_accel_alloc();
         splinevec[memindex]=gsl_spline_alloc(gsl_interp_cspline, nxi);  
         
         gsl_spline_init(splinevec[memindex], za, ya, nxi);
@@ -422,11 +460,12 @@ void free_spline_JC(int memindex, string mess)
         {
             // cout << " free_spline_JC:: called by " << mess << endl;
             strvec[memindex]=" splines were deleted by " + mess;
-            gsl_spline_free (splinevec[memindex]);
-            gsl_interp_accel_free (accvec[memindex]);
+            gsl_spline_free(splinevec[memindex]);
+            gsl_interp_accel_free(accvec[memindex]);
         }
     
         allocvec[memindex]=0;
+        empty_spots.push_back(memindex);
     }
     
     return;
@@ -435,7 +474,7 @@ void free_spline_JC(int memindex, string mess)
 void free_all_splines_JC()
 {
     cout << "\n %------------------------------------------------% " << endl;
-    cout << " % Clearing all GSL-splines (routines.cpp) " << endl;
+    cout << " % Clearing all GSL-splines (routines.cpp)        %" << endl;
     cout << " %------------------------------------------------%\n " << endl;
     
     for(int k=0; k<(int)splinevec.size(); k++)
@@ -592,6 +631,8 @@ void polint_routines(const double *xa, const double *ya, int n, const double x, 
 void polint_JC(const double *xa, const double *ya, int na, const double x, 
                int &istart, int npol, double *y, double *dy)
 {
+    if(na<=npol) throw_error("polint_JC", "more points needed", 2);
+    
     // npol-1 is degree of the interpolating polynomial
     long unsigned int j=istart;
     locate_JC(xa, na-1, x, &j);      // find index corresponding to x (start at i=istart)
@@ -625,9 +666,9 @@ void init_xarr(double x0, double xm, double *xarr, int npts, int method_flag, in
 {
     if(method_flag!=0 && method_flag!=1 && method_flag!=2) 
     {
-    cout << " Choose initialisation strategy for x-array" 
-         << " (0 for linear or 1 for log or 2 for log-linear) !" << endl;
-    cin  >> method_flag;
+        cout << " Choose initialisation strategy for x-array"
+             << " (0 for linear or 1 for log or 2 for log-linear) !" << endl;
+        cin  >> method_flag;
     }
     
     double dx=0.0;
@@ -636,37 +677,52 @@ void init_xarr(double x0, double xm, double *xarr, int npts, int method_flag, in
     // linear
     if(method_flag==0)
     {
-      if(mess_flg==1) cout << "\n Initializing linear in x with " << npts 
-                           << " points\n" << endl;
-    dx=(xm-x0)/(npts-1);
-    // filling array    
-    for(xarr[0]=x0, i=1; i<npts; i++) xarr[i]=xarr[i-1]+dx;
+        if(mess_flg==1) cout << "\n Initializing linear in x with " << npts
+                             << " points\n" << endl;
+        dx=(xm-x0)/(npts-1);
+        // filling array
+        for(xarr[0]=x0, i=1; i<npts; i++) xarr[i]=xarr[i-1]+dx;
     }
-    
-    // log     
+
+    // log
     if(method_flag==1)
     {
-    if(mess_flg==1) cout << "\n Initializing logarithmic in x with " << npts 
-                         << " points\n" << endl;
-    dx=pow(xm/x0, 1.0/(double)(npts-1));
-    // filling array
-    for(xarr[0]=x0, i=1; i<npts; i++) xarr[i]=xarr[i-1]*dx;
+        if(mess_flg==1) cout << "\n Initializing logarithmic in x with " << npts
+                             << " points\n" << endl;
+        dx=pow(xm/x0, 1.0/(double)(npts-1));
+        // filling array
+        for(xarr[0]=x0, i=1; i<npts; i++) xarr[i]=xarr[i-1]*dx;
     }
-    
-    // log (1/4) - linear (3/4)   
+
+    // log (1/4) - linear (3/4)
     if(method_flag==2)
     {
-    if(mess_flg==1) cout << "\n Initializing first 1/30 logarithmic the last 29/30 linear in x with " 
-                 << npts << " points\n" << endl;
-    init_xarr(x0, xm/30.0, xarr, npts/4, 1, 0);
-    init_xarr(xm/30.0, xm, &xarr[npts/4-1], npts-(npts/4-1), 0, 0);
+        if(mess_flg==1) cout << "\n Initializing first 1/30 logarithmic the last 29/30 linear in x with "
+                             << npts << " points\n" << endl;
+        init_xarr(x0, xm/30.0, xarr, npts/4, 1, 0);
+        init_xarr(xm/30.0, xm, &xarr[npts/4-1], npts-(npts/4-1), 0, 0);
     }
-    
+
     return;
-}  
+}
 
 void init_xarr(double x0, double xm, double *xarr, int npts, int method_flag)
 { init_xarr(x0, xm, xarr, npts, method_flag, 1); return; }
+
+int init_xarr(double x0, double xm, vector<double> &xarr, int npts, int method_flag, bool mess)
+{
+    xarr.resize(npts);
+    init_xarr(x0, xm, &xarr[0], npts, method_flag, mess);
+    return npts;
+}
+
+int init_xarr(double x0, double xm, vector<double> &xarr, int logdens, bool mess)
+{
+    int np=(int)max(5, log10(xm/x0)*logdens);
+    xarr.resize(np);
+    init_xarr(x0, xm, &xarr[0], np, 1, mess);
+    return xarr.size();
+}
 
 //======================================================================================
 void wait_f_r()
@@ -843,7 +899,7 @@ double find_root(double (* func)(double *), double x1, double x2, double xacc)
     f=func(&x1);
     fmid=func(&x2);
     if (f*fmid >= 0.0)
-    { cerr << " Root must be bracketed for bisection" << endl; return x2;}
+    { cerr << " Root must be bracketed for bisection " << x1 << " " << x2 << endl; return x2;}
     
     rtb = f < 0.0 ? (dx=x2-x1,x1) : (dx=x1-x2,x2);
     
@@ -871,7 +927,7 @@ double find_root_brent(double (* func)(double *), double x1, double x2, double x
     double fa=func(&a),fb=func(&b),fc,p,q,r,s,tol1,xm;
     
     if (fa*fb >= 0.0)
-    { cerr << " Root must be bracketed for bisection" << endl; return x2; }
+    { cerr << " Root must be bracketed for bisection " << x1 << " " << x2 << endl; return x2; }
     
     fc=fb;
     for (iter=0;iter<find_root_brent_ITMAX;iter++) {
@@ -947,8 +1003,8 @@ double find_root_brent(double (* func)(double *, void *p), void *para,
     double fa=func(&a, para),fb=func(&b, para),fc,p,q,r,s,tol1,xm;
     
     if (fa*fb >= 0.0)
-    { cerr << " Root must be bracketed for bisection" << endl; return x2; }
-    
+    { cerr << " Root must be bracketed for bisection " << x1 << " " << x2 << endl; return x2; }
+
     fc=fb;
     for (iter=0;iter<find_root_brent_ITMAX;iter++) {
         if (fb*fc>=0.0) {
@@ -1238,6 +1294,60 @@ double Harmonic_number_Im(double x)
     }
     
     return x*r;
+}
+
+//======================================================================================
+// Check variable range
+//======================================================================================
+bool check_xrange(double x, const vector<double> &xa, bool show, string mess)
+{
+    double xmin=min(xa[0], xa.back()), xmax=max(xa[0], xa.back());
+
+    if(x<xmin || x>xmax)
+    {
+        if(show)
+            cerr << " " + mess+ " not inside table "
+                 << " xmin = " << xmin
+                 << " x = " << x
+                 << " xmax = " << xmax << "\n";
+
+        return 0;
+    }
+
+    return 1;
+}
+
+bool check_lgxrange(double lgx, const vector<double> &lgxa, bool show, string mess)
+{
+    double lgxmin=min(lgxa[0], lgxa.back()), lgxmax=max(lgxa[0], lgxa.back());
+
+    if(lgx<lgxmin || lgx>lgxmax)
+    {
+        if(show)
+            cerr << " " + mess+ " not inside table "
+                 << " xmin = " << exp(lgxmin)
+                 << " x = " << exp(lgx)
+                 << " xmax = " << exp(lgxmax) << "\n";
+
+        return 0;
+    }
+
+    return 1;
+}
+
+//======================================================================================
+// get index with x[i] < x assuming there is a constant grid
+// grid is in ascending order
+//======================================================================================
+unsigned int get_start_index_interpol(double x, const vector<double> &xa, int npol)
+{
+    double Dx=xa[1]-xa[0], DD=x-xa[0];
+    unsigned int nx=xa.size(), ix=floor(DD/Dx);
+
+    if(ix>1) ix--;
+    if(ix>nx-npol) ix=nx-npol;
+
+    return ix;
 }
 
 //======================================================================================

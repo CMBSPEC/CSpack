@@ -65,7 +65,7 @@ int parser_free(struct file_content &pfc)
 
 //====================================================================================================================
 template <class T>
-int parser_read(const struct file_content &pfc, string var_id, T &val, bool &found, bool show_entry)
+int parser_read_T(const struct file_content &pfc, string var_id, T &val, bool &found, bool show_entry)
 {
     found = 0;
     
@@ -92,14 +92,50 @@ int parser_read(const struct file_content &pfc, string var_id, T &val, bool &fou
     return 0;
 }
 
-int parser_read_int(const struct file_content &pfc, string var_id, int &val, bool &found, bool show_entry)
-{ return parser_read(pfc, var_id, val, found, show_entry); }
+int parser_read(const struct file_content &pfc, string var_id, int &val, bool &found, bool show_entry)
+{ return parser_read_T(pfc, var_id, val, found, show_entry); }
 
-int parser_read_double(const struct file_content &pfc, string var_id, double &val, bool &found, bool show_entry)
-{ return parser_read(pfc, var_id, val, found, show_entry); }
+int parser_read(const struct file_content &pfc, string var_id, double &val, bool &found, bool show_entry)
+{ return parser_read_T(pfc, var_id, val, found, show_entry); }
 
-int parser_read_string(const struct file_content &pfc, string var_id, string &val, bool &found, bool show_entry)
-{ return parser_read(pfc, var_id, val, found, show_entry); }
+int parser_read(const struct file_content &pfc, string var_id, string &val, bool &found, bool show_entry)
+{ return parser_read_T(pfc, var_id, val, found, show_entry); }
+
+//====================================================================================================================
+template <class T>
+int parser_dual_read_T(const struct file_content &pfc, string var_id_1, string var_id_2,
+                       T &val, bool &found_1, bool &found_2, bool show_entry)
+{
+    // Parser two similar parameters and pick the one that is actually found, else set an error.
+    // If neither are found, then just set the found variable as
+    parser_read(pfc, var_id_1, val, found_1, show_entry);
+    parser_read(pfc, var_id_2, val, found_2, show_entry);
+
+    if (found_1 && found_2)
+    {
+        string errmsg="Error! You have given "+var_id_1+" and "+var_id_2+". Please only supply one of these!";
+        throw_error("parser_dual_read", errmsg);
+    }
+    return 0;
+}
+
+int parser_dual_read(const struct file_content &pfc, string var_id_1, string var_id_2,
+                     int &val, bool &found_1, bool &found_2, bool show_entry)
+{
+    return parser_dual_read_T(pfc, var_id_1, var_id_2, val, found_1, found_2, show_entry);
+}
+
+int parser_dual_read(const struct file_content &pfc, string var_id_1, string var_id_2,
+                     double &val, bool &found_1, bool &found_2, bool show_entry)
+{
+    return parser_dual_read_T(pfc, var_id_1, var_id_2, val, found_1, found_2, show_entry);
+}
+
+int parser_dual_read(const struct file_content &pfc, string var_id_1, string var_id_2,
+                     string &val, bool &found_1, bool &found_2, bool show_entry)
+{
+    return parser_dual_read_T(pfc, var_id_1, var_id_2, val, found_1, found_2, show_entry);
+}
 
 //====================================================================================================================
 //====================================================================================================================

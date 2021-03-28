@@ -12,6 +12,7 @@
 #include <gsl/gsl_sf_bessel.h>
 
 #include "Definitions.h"
+#include "routines.h"
 #include "CSpack.h"
 
 using namespace std;
@@ -138,19 +139,12 @@ double alpham(double omega0, double p0)
 double f_moment(double omega0, double p0)
 { return gsl_sf_dilog(-2.0*(gamma_f(p0)+p0)*omega0)-gsl_sf_dilog(-2.0/(gamma_f(p0)+p0)*omega0); }
 
-//==================================================================================================
-// spectral functions for use with blackbody radiation
-//==================================================================================================
-double one_minus_exp_mx(double x) // == 1 - exp(-x)
-{
-    //==============================================================================================
-    // for small x use series expansion for 1-exp(-x)
-    //==============================================================================================
-    if(x<=0.001) return x*(1.0+(-0.5+(1.0/6.0+(-1.0/24.0+(1.0/120.0-1.0/720.0*x)*x)*x)*x)*x);
-    else return 1.0-exp(-x);
 }
 
-double nbb_func(double x){ return exp(-x)/one_minus_exp_mx(x); }          // == 1/[exp(x)-1]
+//==================================================================================================
+extern "C" {
+
+double nbb_func_C(double x){ return nbb_func(x); }      // == 1/[exp(x)-1]
 
 }
 

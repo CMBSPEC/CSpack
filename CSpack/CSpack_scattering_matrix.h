@@ -9,9 +9,11 @@
 #include <string>
 #include <vector>
 
+#include "ODE_solver_LA.h"
 #include "CSpack_kernel_representation.h"
 
 using namespace std;
+using namespace ODE_solver_LA;
 
 namespace CSpack_scattering_matrix {
 
@@ -82,6 +84,105 @@ void compute_sigma_tot(const vector<double> &xarr,
                        double Te_Tg=1.0);
 
 }
+
+//==================================================================================================
+//
+// Scattering matrix representation class
+//
+//==================================================================================================
+class Msc_representation
+{
+private:
+
+    int verbosity_scat_matrix;
+    double The, eps_thresh;
+
+    vector<vector<double> > Sigmas;  // relevant moments
+
+    ODE_solver_matrix Msc_sparse;   // scattering matrix in sparse matrix form
+
+public:
+
+    //==============================================================================================
+    ~Msc_representation();
+    Msc_representation(){ Sigmas.clear(); The=0; eps_thresh=1.0e-6; verbosity_scat_matrix=1; }
+    
+    Msc_representation(const vector<double> &xearr,
+                       const vector<double> &Int_wi,
+                       double The, double eps_thresh,
+                       string type="SS_C", int maxMom=0, bool stimMom=0);
+
+    //==============================================================================================
+    // This version uses parallel setup by filling a full matrix first and then copying
+    //==============================================================================================
+    void init(const vector<double> &xearr,
+              const vector<double> &Int_wi,
+              double The, double eps_thresh,
+              string type="SS_C", int maxMom=0, bool stimMom=0);
+
+    //==============================================================================================
+    // This version is useful for setting up multiple scattering matrices,
+    // where each core can handle one from the calling program
+    //==============================================================================================
+    void init_serial(const vector<double> &xearr,
+                     const vector<double> &Int_wi,
+                     double The, double eps_thresh,
+                     string type="SS_C", int maxMom=0, bool stimMom=0);
+
+    //==============================================================================================
+    double Msc(int i, int j){ return Msc_sparse.Get_element(i, j); }
+    double Get_Theta(){ return The; }
+    double Get_eps_thresh(){ return eps_thresh; }
+
+    const ODE_solver_matrix& Get_Msc() { return Msc_sparse; }
+    void Get_Msc(vector<vector<double> > &Msc);   // copy into standard full matrix [usually slower]
+
+    void update_moments(const vector<double> &xearr, int maxMom=0, bool stimMom=0, double Te_Tg=0.0);
+    double Get_Sigmak(int k, int i);
+    double Get_Sigma0(int i){ return Get_Sigmak(0, i); }
+    double Get_Sigma1(int i){ return Get_Sigmak(1, i); }
+    double Get_Sigma2(int i){ return Get_Sigmak(2, i); }
+};
+
+//==================================================================================================
+//
+// Scattering matrix representation class for multiple values of Theta
+//
+//==================================================================================================
+class Msc_representation_Te : Msc_representation
+{
+private:
+
+    int logdens_The, npThe;
+    double The_min, The_max, The_curr;
+
+    vector<double> The_arr;
+    vector<vector<double> > Msc_full;
+    ODE_solver_LA::ODE_solver_matrix Msc_sparse;   // scattering matrix in sparse matrix form
+
+    vector<Msc_representation> Msc_The; // scattering matrix data for various values of The
+
+    double do_interpol(double lgx, const double *lgxa, const double *ya);
+    double Msc(int i, int j, unsigned int intj, double The);
+
+public:
+
+    //==============================================================================================
+    ~Msc_representation_Te(){};
+    Msc_representation_Te(){ npThe=0; Msc_The.resize(0); };
+    Msc_representation_Te(const vector<double> &xearr,
+                          const vector<double> &Int_wi,
+                          double The_min, double The_max, int logdens_The, double eps_thresh,
+                          string type="SS_C", int maxMom=0, bool stimMom=0);
+
+    void init(const vector<double> &xearr,
+              const vector<double> &Int_wi,
+              double The_min, double The_max, int logdens_The, double eps_thresh,
+              string type="SS_C", int maxMom=0, bool stimMom=0);
+
+    double Msc(int i, int j, double The);
+    const ODE_solver_LA::ODE_solver_matrix& Get_Msc(double The);
+};
 
 #endif
 //==================================================================================================
