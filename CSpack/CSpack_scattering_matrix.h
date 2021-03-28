@@ -104,13 +104,13 @@ private:
 public:
 
     //==============================================================================================
-    ~Msc_representation();
+    ~Msc_representation(){};
     Msc_representation(){ Sigmas.clear(); The=0; eps_thresh=1.0e-6; verbosity_scat_matrix=1; }
     
     Msc_representation(const vector<double> &xearr,
                        const vector<double> &Int_wi,
                        double The, double eps_thresh,
-                       string type="SS_C", int maxMom=0, bool stimMom=0);
+                       int maxMom=0, bool stimMom=0);
 
     //==============================================================================================
     // This version uses parallel setup by filling a full matrix first and then copying
@@ -118,7 +118,7 @@ public:
     void init(const vector<double> &xearr,
               const vector<double> &Int_wi,
               double The, double eps_thresh,
-              string type="SS_C", int maxMom=0, bool stimMom=0);
+              int maxMom=0, bool stimMom=0);
 
     //==============================================================================================
     // This version is useful for setting up multiple scattering matrices,
@@ -127,7 +127,7 @@ public:
     void init_serial(const vector<double> &xearr,
                      const vector<double> &Int_wi,
                      double The, double eps_thresh,
-                     string type="SS_C", int maxMom=0, bool stimMom=0);
+                     int maxMom=0, bool stimMom=0);
 
     //==============================================================================================
     double Msc(int i, int j){ return Msc_sparse.Get_element(i, j); }
@@ -175,16 +175,17 @@ public:
                           const vector<double> &Int_wi,
                           double The_min, double The_max, int logdens_The,
                           double eps_thresh, double eps_interpol,
-                          string type="SS_C", int maxMom=0, bool stimMom=0);
+                          int maxMom=0, bool stimMom=0);
 
     void init(const vector<double> &xearr,
               const vector<double> &Int_wi,
               double The_min, double The_max, int logdens_The,
               double eps_thresh, double eps_interpol,
-              string type="SS_C", int maxMom=0, bool stimMom=0);
+              int maxMom=0, bool stimMom=0);
 
     double Msc(int i, int j, double The);
     const ODE_solver_LA::ODE_solver_matrix& Get_Msc(double The);
+    void Get_Msc(double The, vector<vector<double> > &Msc);   // copy into standard full matrix
 };
 
 #endif

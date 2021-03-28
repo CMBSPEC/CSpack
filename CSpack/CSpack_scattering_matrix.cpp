@@ -316,9 +316,9 @@ void compute_sigma_tot(const vector<double> &xarr,
 Msc_representation::Msc_representation(const vector<double> &xearr,
                                        const vector<double> &Int_wi,
                                        double The, double eps_thresh,
-                                       string type, int maxMom, bool stimMom)
+                                       int maxMom, bool stimMom)
 {
-    this->init(xearr, Int_wi, The, eps_thresh, type, maxMom, stimMom);
+    this->init(xearr, Int_wi, The, eps_thresh, maxMom, stimMom);
 }
 
 //==================================================================================================
@@ -328,7 +328,7 @@ Msc_representation::Msc_representation(const vector<double> &xearr,
 void Msc_representation::init_serial(const vector<double> &xearr,
                                      const vector<double> &Int_wi,
                                      double The, double eps_thresh,
-                                     string type, int maxMom, bool stimMom)
+                                     int maxMom, bool stimMom)
 {
     string func=" Msc_representation::init_serial : ";
 
@@ -338,12 +338,9 @@ void Msc_representation::init_serial(const vector<double> &xearr,
     this->The=The;
     this->eps_thresh=eps_thresh;
 
-    double (*kernel)(double omega0, double omega, double theta)=NULL;
-
-    if(type=="exact") kernel=thermal_kernel_exact;
-    else if(type=="SS_K") kernel=thermal_kernel_SS_K;
-    else if(type=="SS_C") kernel=thermal_kernel_SS_C;
-    else throw_error("Msc_representation::init_serial", "kernel type not available", 1);
+    double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_exact;
+    //double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_SS_K;
+    //double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_SS_C;
 
     // create matrix
     int npx=xearr.size();
@@ -403,7 +400,7 @@ void Msc_representation::init_serial(const vector<double> &xearr,
 void Msc_representation::init(const vector<double> &xearr,
                               const vector<double> &Int_wi,
                               double The, double eps_thresh,
-                              string type, int maxMom, bool stimMom)
+                              int maxMom, bool stimMom)
 {
     string func=" Msc_representation::init :";
     if(verbosity_scat_matrix>0)
@@ -418,7 +415,7 @@ void Msc_representation::init(const vector<double> &xearr,
 
     // although this is first setting up the full matrix, because this is done in parallel,
     // it is faster for single matrices. Direct sparse matrix version for multiple The.
-    CSpack_scattering_matrix::compute_scattering_matrix(xearr, The, Int_wi, Msc_full, type, eps_thresh);
+    CSpack_scattering_matrix::compute_scattering_matrix(xearr, The, Int_wi, Msc_full, "exact", eps_thresh);
 
     // saving step
     for(int i=0; i<npx; i++)
@@ -478,7 +475,7 @@ void Msc_representation::Get_Msc(vector<vector<double> > &Msc_full)
 
 double Msc_representation::Get_Sigmak(int k, int i)
 {
-    if(k<Sigmas.size()) return Sigmas[k][i];
+    if(k<(int)Sigmas.size()) return Sigmas[k][i];
     else throw_error("Msc_representation::Get_Sigmak", "requested moment not setup", 1);
 
     return 0.0;
@@ -493,12 +490,12 @@ Msc_representation_Te :: Msc_representation_Te(const vector<double> &xearr,
                                                const vector<double> &Int_wi,
                                                double The_min, double The_max, int logdens_The,
                                                double eps_thresh, double eps_interpol,
-                                               string type, int maxMom, bool stimMom)
+                                               int maxMom, bool stimMom)
 {
     init(xearr, Int_wi,
          The_min, The_max, logdens_The,
          eps_thresh, eps_interpol,
-         type, maxMom, stimMom);
+         maxMom, stimMom);
 }
 
 //==================================================================================================
@@ -527,7 +524,7 @@ void Msc_representation_Te :: init(const vector<double> &xearr,
                                    const vector<double> &Int_wi,
                                    double The_min, double The_max, int logdens_The,
                                    double eps_thresh, double eps_interpol,
-                                   string type, int maxMom, bool stimMom)
+                                   int maxMom, bool stimMom)
 {
     this->The_min=The_min;
     this->The_max=The_max;
@@ -544,7 +541,7 @@ void Msc_representation_Te :: init(const vector<double> &xearr,
 #pragma omp parallel for default(shared) schedule(dynamic)
 #endif
     for(int iT=0; iT<npThe; iT++)
-        Msc_The[iT].init_serial(xearr, Int_wi, The_arr[iT], eps_thresh, type, maxMom, stimMom);
+        Msc_The[iT].init_serial(xearr, Int_wi, The_arr[iT], eps_thresh, maxMom, stimMom);
 
     return;    
 }
@@ -617,6 +614,19 @@ const ODE_solver_LA::ODE_solver_matrix& Msc_representation_Te :: Get_Msc(double 
     }
 
     return Msc_sparse;
+}
+
+//==================================================================================================
+void Msc_representation_Te :: Get_Msc(double The, vector<vector<double> > &Msc)
+{
+    ODE_solver_matrix D=Get_Msc(The);
+
+    if((int)Msc.size()!=D.dim) Msc.resize(D.dim, vector<double>(D.dim, 0.0));
+
+    for(int i=0; i<D.dim; i++)
+        for(int j=0; j<D.dim; j++) Msc[i][j]=D.Get_element(i, j);
+
+    return;
 }
 
 //==================================================================================================
