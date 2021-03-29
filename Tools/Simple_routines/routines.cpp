@@ -716,7 +716,7 @@ int init_xarr(double x0, double xm, vector<double> &xarr, int npts, int method_f
     return npts;
 }
 
-int init_xarr(double x0, double xm, vector<double> &xarr, int logdens, bool mess)
+int init_xarr_dens(double x0, double xm, vector<double> &xarr, int logdens, bool mess)
 {
     int np=(int)max(5, log10(xm/x0)*logdens);
     xarr.resize(np);

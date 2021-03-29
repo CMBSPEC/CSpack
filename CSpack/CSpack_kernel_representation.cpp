@@ -337,7 +337,7 @@ void Kernel_representation_Te::init_Kernel_Table(double omin, double om0, double
     this->Theta_max =Theta_max;
     this->logdens_The=logdens_The;
 
-    npThe=init_xarr(Theta_min, Theta_max, The_arr, logdens_The, 1);
+    npThe=init_xarr_dens(Theta_min, Theta_max, The_arr, logdens_The, 1);
 
     Kernels_The.resize(npThe);
 

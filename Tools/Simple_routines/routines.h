@@ -101,10 +101,10 @@ void polint_JC(const double *xa, const double *ya, int na, const double x, int &
 void init_xarr(double x0, double xm, double *xarr, int npts, int method_flag, int mess_flg);
 void init_xarr(double x0, double xm, double *xarr, int npts, int method_flag);
 
-int init_xarr(double x0, double xm, vector<double> &xarr, int npts,
-              int method_flag, bool mess=0);
+int init_xarr(double x0, double xm, vector<double> &xarr,
+              int npts, int method_flag, bool mess);
 
-int init_xarr(double x0, double xm, vector<double> &xarr, int logdens, bool mess=0);
+int init_xarr_dens(double x0, double xm, vector<double> &xarr, int logdens, bool mess=0);
 
 //======================================================================================
 void wait_f_r();

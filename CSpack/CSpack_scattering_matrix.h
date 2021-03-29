@@ -105,7 +105,7 @@ public:
 
     //==============================================================================================
     ~Msc_representation(){};
-    Msc_representation(){ Sigmas.clear(); The=0; eps_thresh=1.0e-6; verbosity_scat_matrix=1; }
+    Msc_representation(){ Sigmas.clear(); The=0; eps_thresh=1.0e-6; verbosity_scat_matrix=0; }
     
     Msc_representation(const vector<double> &xearr,
                        const vector<double> &Int_wi,
@@ -153,6 +153,7 @@ class Msc_representation_Te : Msc_representation
 {
 private:
 
+    int npx;
     int logdens_The, npThe;
     double The_min, The_max, The_curr;
     double eps_interpol;                           // The threshold that decides about interpolation

@@ -530,8 +530,9 @@ void Msc_representation_Te :: init(const vector<double> &xearr,
     this->The_max=The_max;
     this->logdens_The=logdens_The;
     this->eps_interpol=eps_interpol;
+    this->npx=xearr.size();
 
-    npThe=init_xarr(The_min, The_max, The_arr, logdens_The, 1);
+    npThe=init_xarr_dens(The_min, The_max, The_arr, logdens_The, 0);
 
     Msc_The.resize(npThe);
     Msc_full.resize(xearr.size(), vector<double>(xearr.size(), 0.0));
@@ -581,12 +582,13 @@ double Msc_representation_Te :: Msc(int i, int j, double The)
 }
 
 //==================================================================================================
-const ODE_solver_LA::ODE_solver_matrix& Msc_representation_Te :: Get_Msc(double The)
+void Msc_representation_Te :: Get_Msc(double The, vector<vector<double> > &Msc)
 {
+    if((int)Msc.size()!=npx) Msc.resize(npx, vector<double>(npx, 0.0));
+
     if(fabs(The_curr/The-1.0)>eps_interpol)
     {
         The_curr=The;
-        Msc_sparse.clear();
 
         if(npThe==0) throw_error("Msc_representation_Te :: Msc", "data not set", 1);
 
@@ -597,18 +599,29 @@ const ODE_solver_LA::ODE_solver_matrix& Msc_representation_Te :: Get_Msc(double 
         // find index around The
         unsigned int iT=get_start_index_interpol(The, The_arr, 4);
 
-        int npx=Msc_full.size();
-
 #ifdef OPENMP_ACTIVATED
 #pragma omp parallel for default(shared) schedule(dynamic)
 #endif
         // interpolation across Te
         for(int i=0; i<npx; i++)
             for(int j=0; j<npx; j++)
-                Msc_full[i][j]=Msc(i, j, iT, The);
+                Msc[i][j]=this->Msc(i, j, iT, The);
 #ifdef OPENMP_ACTIVATED
 #pragma omp barrier
 #endif
+    }
+
+    return;
+}
+
+//==================================================================================================
+const ODE_solver_LA::ODE_solver_matrix& Msc_representation_Te :: Get_Msc(double The)
+{
+    if(fabs(The_curr/The-1.0)>eps_interpol || Msc_sparse.dim==0)
+    {
+        Msc_sparse.clear();
+
+        Get_Msc(The, Msc_full);
 
         // save into sparse matrix
         for(int i=0; i<npx; i++)
@@ -617,19 +630,6 @@ const ODE_solver_LA::ODE_solver_matrix& Msc_representation_Te :: Get_Msc(double 
     }
 
     return Msc_sparse;
-}
-
-//==================================================================================================
-void Msc_representation_Te :: Get_Msc(double The, vector<vector<double> > &Msc)
-{
-    ODE_solver_matrix D=Get_Msc(The);
-
-    if((int)Msc.size()!=D.dim) Msc.resize(D.dim, vector<double>(D.dim, 0.0));
-
-    for(int i=0; i<D.dim; i++)
-        for(int j=0; j<D.dim; j++) Msc[i][j]=D.Get_element(i, j);
-
-    return;
 }
 
 //==================================================================================================
