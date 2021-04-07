@@ -24,6 +24,7 @@ void set_verbosity(int verb=0);
 //==================================================================================================
 void Integral_weights_trapz(vector<double> &xarr, vector<double> &Int_wi);
 void Integral_weights(vector<double> &xarr, vector<double> &Int_wi);
+void Integral_weights_logx(vector<double> &xarr, vector<double> &Int_wi);
 
 //==================================================================================================
 // Routines for scattering matrix setups

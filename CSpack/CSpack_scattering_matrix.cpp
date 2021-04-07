@@ -103,6 +103,19 @@ void Integral_weights(vector<double> &xarr, vector<double> &Int_wi)
 }
 
 //==================================================================================================
+void Integral_weights_logx(vector<double> &xarr, vector<double> &Int_wi)
+{
+    vector<double> lgx=xarr;
+    for(int i=0; i<(int)lgx.size(); i++) lgx[i]=log(lgx[i]);
+
+    Integral_weights(lgx, Int_wi);
+
+    for(int i=0; i<(int)lgx.size(); i++) Int_wi[i]*=xarr[i];
+
+    return;
+}
+
+//==================================================================================================
 // Routines for scattering matrix setups
 //--------------------------------------------------------------------------------------------------
 // inputs :
@@ -571,7 +584,7 @@ double Msc_representation_Te :: Msc(int i, int j, double The)
 {
     if(npThe==0) throw_error("Msc_representation_Te :: Msc", "data not set", 1);
 
-    bool show=0;
+    bool show=1;
     bool rangeok=check_xrange(The, The_arr, show, "The");
     if(!rangeok) throw_error("Msc_representation_Te :: Msc", "The outside of range", 2);
 
@@ -590,11 +603,11 @@ void Msc_representation_Te :: Get_Msc(double The, vector<vector<double> > &Msc)
     {
         The_curr=The;
 
-        if(npThe==0) throw_error("Msc_representation_Te :: Msc", "data not set", 1);
+        if(npThe==0) throw_error("Msc_representation_Te :: Get_Msc", "data not set", 1);
 
-        bool show=0;
+        bool show=1;
         bool rangeok=check_xrange(The, The_arr, show, "The");
-        if(!rangeok) throw_error("Msc_representation_Te :: Msc", "The outside of range", 2);
+        if(!rangeok) throw_error("Msc_representation_Te :: Get_Msc", "The outside of range", 2);
 
         // find index around The
         unsigned int iT=get_start_index_interpol(The, The_arr, 4);
