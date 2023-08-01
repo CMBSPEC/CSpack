@@ -105,7 +105,8 @@ double Compute_muc_N(double DTg_Te, double DN_N)
     d.DN_N=DN_N;
     d.number=1;
 
-    return find_root_brent(root_func_equilibrium, &d, -0.1, 200.0, 1.0e-16);
+    return find_root_brent(root_func_equilibrium, &d, -0.1, 200.0, 1.0e-16,
+                           "Compute_muc_N");
 }
 
 double Compute_muc_rho(double DTg_Te, double Drho_rho)
@@ -116,7 +117,8 @@ double Compute_muc_rho(double DTg_Te, double Drho_rho)
     d.Drho_rho=Drho_rho;
     d.number=0;
 
-    return find_root_brent(root_func_equilibrium, &d, -0.1, 200.0, 1.0e-16);
+    return find_root_brent(root_func_equilibrium, &d, -0.1, 200.0, 1.0e-16,
+                           "Compute_muc_rho");
 }
 
 double Compute_Drho_rho(double DTg_Te, double DN_N)
@@ -149,7 +151,8 @@ double Compute_muc_rhoN(double Drho_rho, double DN_N)
     d.Drho_rho=Drho_rho;
     d.DN_N=DN_N;
 
-    return find_root_brent(root_func_equilibrium_rhoN, &d, 0.0, 10.0, 1.0e-12);
+    return find_root_brent(root_func_equilibrium_rhoN, &d, 0.0, 10.0, 1.0e-12,
+                           "Compute_muc_rhoN");
 }
 
 double Compute_DT_T(double Drho_rho, double DN_N, double muc)
@@ -176,7 +179,8 @@ double Compute_DT_T(double Drho_rho, double DN_N)
     double rN=DNumber_integral(muc);
     d.DN_N=(rN-DN_N)/(1.0+DN_N);
 
-    return find_root_brent(root_func_equilibrium_DT_T, &d, -200.0, 200.0, 1.0e-16);
+    return find_root_brent(root_func_equilibrium_DT_T, &d, -200.0, 200.0, 1.0e-16,
+                           "Compute_DT_T");
 }
 
 double Compute_Drho_rho_inj(double DTg_Te, double muc)

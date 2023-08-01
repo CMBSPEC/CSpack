@@ -18,6 +18,7 @@ using namespace std;
 #include "CSpack_energy_losses.h"
 #include "CSpack_kernel_representation.h"
 #include "CSpack_equilibrium_solutions.h"
+#include "CSpack_weights.h"
 
 #endif
 

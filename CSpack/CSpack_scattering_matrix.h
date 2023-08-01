@@ -20,13 +20,6 @@ namespace CSpack_scattering_matrix {
 void set_verbosity(int verb=0);
 
 //==================================================================================================
-// integral weights for scattering matrix
-//==================================================================================================
-void Integral_weights_trapz(vector<double> &xarr, vector<double> &Int_wi);
-void Integral_weights(vector<double> &xarr, vector<double> &Int_wi);
-void Integral_weights_logx(vector<double> &xarr, vector<double> &Int_wi);
-
-//==================================================================================================
 // Routines for scattering matrix setups
 //--------------------------------------------------------------------------------------------------
 // inputs:
@@ -65,6 +58,46 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                vector<vector<double> > &Msc,
                                string type="exact",
                                double epsilon=1.0e-40);
+
+//==================================================================================================
+// Routines for scattering matrix setups
+//--------------------------------------------------------------------------------------------------
+// inputs:
+// xarr  : contains frequency grid points x=h nu/kTe = omega/theta
+// theta : kTe/mc^2
+//
+// outputs: Msc = int Pij dxj_bin * theta
+//
+// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
+// epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
+// add_stim: optional parameter to add stimulated scattering effect in blackbody radiation field
+//==================================================================================================
+void compute_scattering_matrix_bin_averaged(const vector<double> &xarr, double theta,
+                                            vector<vector<double> > &Msc,
+                                            string type,
+                                            double epsilon,
+                                            bool add_stim=0);
+
+//==================================================================================================
+// Routines for scattering matrix setups
+//--------------------------------------------------------------------------------------------------
+// inputs:
+// xarr    : contains frequency grid points x=h nu/kTg = omega/theta_g
+// theta   : kTe/mc^2
+// theta_g : kTg/mc^2
+//
+// outputs: Msc = int Pij dxj_bin * theta_g
+//
+// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
+// epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
+// add_stim: optional parameter to add stimulated scattering effect in blackbody radiation field
+//==================================================================================================
+void compute_scattering_matrix_bin_averaged_II(const vector<double> &xarr,
+                                               double theta, double theta_g,
+                                               vector<vector<double> > &Msc,
+                                               vector<Kernel_representation> &KR,
+                                               string type,
+                                               double epsilon, bool add_stim=0);
 
 //==================================================================================================
 // total cross section

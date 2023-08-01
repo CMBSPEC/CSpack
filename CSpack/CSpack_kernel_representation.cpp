@@ -61,6 +61,10 @@ void Kernel_representation::init(double omin, double om0, double omax, int npv, 
     wmin=omin/omega0; wmax=omax/omega0;
 
     string type="exact";
+
+    // use analytic formula for non-relativistic limit
+    //if(om0<1.0e-4 && The<1.0e-4) type="SS_C";
+
     P0=thermal_kernel_all(omega0, omega0, Theta, type);
 
     if(np==-1) allocate_splines(npv);
@@ -100,14 +104,15 @@ double find_root_CS(double (* func)(double *, void *p), void *p,
     if(x1==x2) return x1;
     
     double x;
-    if(x1>x2) x=find_root_brent(func, p, x2, x1, xacc);
-    else x=find_root_brent(func, p, x2, x1, xacc);
+    if(x1>x2) x=find_root_brent(func, p, x2, x1, xacc, "find_root_CS");
+    else x=find_root_brent(func, p, x1, x2, xacc, "find_root_CS");
 
     return x;
 }
 
 //==================================================================================================
-void Kernel_representation::create_kernel_splines(double omega_lim, double eps_thresh,
+void Kernel_representation::create_kernel_splines(double omega_lim,
+                                                  double eps_thresh,
                                                   int npv, string type)
 {
     if(np!=-1 && np!=npv) throw_error("create_kernel_splines", "memory not correctly allocated", 1);
@@ -134,7 +139,8 @@ void Kernel_representation::create_kernel_splines(double omega_lim, double eps_t
     double lwstart=0.0, lwlim=log(omega_lim/omega0), lwsig=log(wfac), lwc;
     double P=thermal_kernel_all(omega0, omega0*exp(lwsig), Theta, type);
 
-    if(P<=P0*eps_thresh) lwc=find_root_CS(root_func, &d, lwsig, lwstart, 1.0e-3);
+    // added start of search if P==0. This is to avoid that P==0 values are inside the domain
+    if(P<=P0*eps_thresh || P==0.0) lwc=find_root_CS(root_func, &d, lwsig, lwstart, 1.0e-3);
     else
     {
         lwstart=lwsig;
@@ -145,12 +151,12 @@ void Kernel_representation::create_kernel_splines(double omega_lim, double eps_t
         }
 
         // if w found within range that brackets null --> solve
-        if(P<P0*eps_thresh) lwc=find_root_CS(root_func, &d, lwsig, lwstart, 1.0e-3);
+        if(P<P0*eps_thresh || P==0.0) lwc=find_root_CS(root_func, &d, lwsig, lwstart, 1.0e-3);
         else lwc=lwsig;
     }
 
-    if(omega_lim<omega0) wmin=max(wmin, exp(lwc))/1.01;
-    else wmax=min(wmax, exp(lwc))*1.01;
+    if(omega_lim<omega0) wmin=max(wmin, exp(lwc))/1.00000000001;
+    else wmax=min(wmax, exp(lwc))*1.00000000001;
 
     //==============================================================================================
     // compute kernel in log-log
@@ -188,7 +194,7 @@ double Kernel_representation::Kernel(double om)
 
     if(w<wmin || w>wmax) return 0.0;
     
-    if(w>1.0 && spline_up!=-1) return exp(calc_spline_JC(log(w), spline_up, "P+ interpol"));
+    if(w>1.0 && spline_up  !=-1) return exp(calc_spline_JC(log(w), spline_up  , "P+ interpol"));
     if(w<1.0 && spline_down!=-1) return exp(calc_spline_JC(log(w), spline_down, "P- interpol"));
 
     return P0;

@@ -139,7 +139,11 @@ double lower_limit(double omega0, double omega)
     if(omega <= omega0)
     {
         if(omega <= omega0/(1.0+2.0*omega0))
-            lim =  (omega0-omega)/2.0*sqrt((1.0+omega*omega0)/(omega*omega0)) - (omega0+omega)/2.0;
+        {
+            //lim = ( (omega0-omega)*sqrt((1.0+omega*omega0)/(omega*omega0)) - (omega0+omega) )/2.0;
+            double N=2.0*( (omega0-omega)*sqrt((1.0+omega*omega0)/(omega*omega0))+(omega0+omega) );
+            lim = (omega/omega0+omega0/omega-4.0*omega*omega0-2.0)/N;
+        }
 
         else lim = 0.0;
     }
@@ -149,7 +153,12 @@ double lower_limit(double omega0, double omega)
         if(omega <= omega0/(1.0-2.0*omega0))
             lim = sqrt( (omega-omega0)*(omega-omega0+2.0) );
 
-        else lim = (omega-omega0)/2.0*sqrt((1.0+omega*omega0)/(omega*omega0)) + (omega0+omega)/2.0;
+        else
+        {
+            //lim = ( (omega-omega0)*sqrt((1.0+omega*omega0)/(omega*omega0)) + (omega0+omega) )/2.0;
+            double N=2.0*( (omega0-omega)*sqrt((1.0+omega*omega0)/(omega*omega0))+(omega0+omega) );
+            lim = -(omega/omega0+omega0/omega-4.0*omega*omega0-2.0)/N;
+        }
     }
 
     else if(omega > omega0 && omega0 > 0.5)
@@ -215,6 +224,19 @@ double thermal_kernel_all(double omega0, double omega, double theta, string type
     b=max(pmax, pb*20.0);
 
     double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_p_all, &d);
+
+//    double la=log(a), lb=min(log(a*4.0), log(b)), r=0.0;
+//    r=Integrate_using_Patterson_adaptive(la, lb, epsrel, epsabs, integrand_p_all, &d);
+//
+//    la=lb; lb=min(log(a*8.0), log(b));
+//    r+=Integrate_using_Patterson_adaptive(la, lb, epsrel, epsabs, integrand_p_all, &d);
+//
+//    la=lb; lb=min(log(a*16.0), log(b));
+//    r+=Integrate_using_Patterson_adaptive(la, lb, epsrel, epsabs, integrand_p_all, &d);
+//
+//    la=lb; lb=log(b);
+//    r+=Integrate_using_Patterson_adaptive(la, lb, epsrel, epsabs, integrand_p_all, &d);
+//
     return r/mb_dist_norm(theta);
 }
  

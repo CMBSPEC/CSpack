@@ -4,13 +4,14 @@
 //==================================================================================================
 
 #include "routines.h"
+#include "Patterson.h"
 
 #include "CSpack.h"
-#include "ODE_solver_LA.h"
 
 using namespace std;
 using namespace CSpack_functions;
 using namespace CSpack_kernels;
+using namespace CSpack_weights;
 
 //==================================================================================================
 // main functions in namespace
@@ -20,100 +21,6 @@ namespace CSpack_scattering_matrix {
 int verbosity_scat_matrix=0;
 
 void set_verbosity(int verb){ verbosity_scat_matrix=verb; return; }
-
-//==================================================================================================
-// weights using f(x) = L(x) [5 point Lagrange polynomial] and integrating over
-// x in [xa, xb] around xj
-//==================================================================================================
-double Int_li_xj_II(double x1, double x2, double x3, double x4, double xj,
-                    double xa, double xb)
-{
-    double r=(pow(xb, 5)-pow(xa, 5))/5.0;
-    r+=-(x1+x2+x3+x4)/4.0 * (pow(xb, 4)-pow(xa, 4));
-    r+=(x1*(x2+x3+x4)+x2*(x3+x4)+x3*x4)/3.0 * (pow(xb, 3)-pow(xa, 3));
-    r+=-(x1*(x2*x3+x2*x4+x3*x4)+x2*x3*x4)/2.0 * (xb-xa) * (xb+xa);
-    r+= x1*x2*x3*x4 * (xb-xa);
-
-    return r /(x1-xj)/(x2-xj)/(x3-xj)/(x4-xj);
-}
-
-double Int_li_xj_II(int j, int k, vector<double> &xi)
-{
-    //    double xa=(xi[j]+xi[j-1])/2.0, xb=(xi[j+1]+xi[j])/2.0;
-    double xa=xi[j], xb=xi[j+1];
-    double x1, x2, x3, x4;
-
-    if(k==-2){ x1=xi[j-1]; x2=xi[j]; x3=xi[j+1]; x4=xi[j+2]; }
-    else if(k==-1){ x1=xi[j-2]; x2=xi[j]; x3=xi[j+1]; x4=xi[j+2]; }
-    else if(k== 0){ x1=xi[j-2]; x2=xi[j-1]; x3=xi[j+1]; x4=xi[j+2]; }
-    else if(k== 1){ x1=xi[j-2]; x2=xi[j-1]; x3=xi[j]; x4=xi[j+2]; }
-    else if(k== 2){ x1=xi[j-2]; x2=xi[j-1]; x3=xi[j]; x4=xi[j+1]; }
-    else { return 0.0; }
-
-    double r=Int_li_xj_II(x1, x2, x3, x4, xi[j+k], xa, xb);
-
-    return r;
-}
-
-//==================================================================================================
-void Integral_weights_trapz(vector<double> &xarr, vector<double> &Int_wi)
-{
-    int np=xarr.size();
-    Int_wi.resize(np, 0.0);
-
-    //================================================================
-    // initial points around lower boundary
-    //================================================================
-    int ix=0;
-    Int_wi[ix]+=(xarr[ix+1]-xarr[ix])/2.0; ix++;
-    for(; ix<np-1; ix++) Int_wi[ix]+=(xarr[ix+1]-xarr[ix-1])/2.0;
-    Int_wi[ix]+=(xarr[ix]-xarr[ix-1])/2.0;
-
-    return;
-}
-
-//==================================================================================================
-void Integral_weights(vector<double> &xarr, vector<double> &Int_wi)
-{
-    int np=xarr.size();
-    Int_wi.resize(np, 0.0);
-
-    //================================================================
-    // initial points around lower boundary
-    //================================================================
-    int ix=0;
-    Int_wi[ix]+=(xarr[ix+1]-xarr[ix])/2.0; ix++;
-    for(; ix<2; ix++) Int_wi[ix]+=(xarr[ix+1]-xarr[ix-1])/2.0;
-    Int_wi[ix]+=(xarr[ix]-xarr[ix-1])/2.0;
-
-    //================================================================
-    // internal points with 5-point formula
-    //================================================================
-    for(ix=2; ix<np-3; ix++)
-        for(int k=-2; k<3; k++) Int_wi[ix+k]+=Int_li_xj_II(ix, k, xarr);
-
-    //================================================================
-    // finish off using simple trapeziodal rule
-    //================================================================
-    Int_wi[ix]+=(xarr[ix+1]-xarr[ix])/2.0; ix++;
-    for(; ix<np-1; ix++) Int_wi[ix]+=(xarr[ix+1]-xarr[ix-1])/2.0;
-    Int_wi[ix]+=(xarr[ix]-xarr[ix-1])/2.0;
-
-    return;
-}
-
-//==================================================================================================
-void Integral_weights_logx(vector<double> &xarr, vector<double> &Int_wi)
-{
-    vector<double> lgx=xarr;
-    for(int i=0; i<(int)lgx.size(); i++) lgx[i]=log(lgx[i]);
-
-    Integral_weights(lgx, Int_wi);
-
-    for(int i=0; i<(int)lgx.size(); i++) Int_wi[i]*=xarr[i];
-
-    return;
-}
 
 //==================================================================================================
 // Routines for scattering matrix setups
@@ -151,48 +58,53 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
 
     // make vector of Kernel representations
     KR.resize(npx);
-    double omin=xarr[0]*theta/300.0, omax=xarr.back()*theta*300.0;
-    //double omin=xarr[0]*theta, omax=xarr.back()*theta;
+    double omin=xarr[0]*theta/3.0, omax=xarr.back()*theta*3.0;
     for(int i=0; i<npx; i++) KR[i].allocate_splines(nK);
 
 #ifdef OPENMP_ACTIVATED
 #pragma omp parallel for default(shared) schedule(dynamic)
 #endif
     for(int i=0; i<npx; i++)
-        KR[i].init(omin, xarr[i]*theta, omax, nK, theta, epsilon, epsilon, 2, stim);
+        KR[i].init(omin, xarr[i]*theta, omax, nK, theta, epsilon, epsilon, -1, stim);
+#ifdef OPENMP_ACTIVATED
+#pragma omp barrier
+#endif
 
+#ifdef OPENMP_ACTIVATED
+#pragma omp parallel for default(shared) schedule(dynamic)
+#endif
     for(int i=0; i<npx; i++) //x
     {
         // reset matrix
         for(int j=0; j<npx; j++) Msc[i][j]=0.0;
 
-        double omega_fac=Int_wi[i] * theta; // dnu' weight
-        double om0=xarr[i]*theta;
+        double omp=xarr[i]*theta;
         // diagonal element for reference
-        Msc[i][i]= KR[i].Kernel(om0) * omega_fac;
+        Msc[i][i]= Int_wi[i] * theta * KR[i].Kernel(omp);
 
         for(int j=i+1; j<npx; j++) //xp>x
         {
-            double omega_fac=Int_wi[j] * theta; // dnu' weight
-            double omp=xarr[j]*theta;
+            omp=xarr[j]*theta;
 
             // P(nu-->nu') here for all pairs i == col and j == row
-            Msc[i][j]= KR[i].Kernel(omp) * omega_fac;
+            Msc[i][j]= Int_wi[j] * theta * KR[i].Kernel(omp);
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }
 
         for(int j=i-1; j>=0; j--) //xp<x
         {
-            double omega_fac=Int_wi[j] * theta; // dnu' weight
-            double omp=xarr[j]*theta;
+            omp=xarr[j]*theta;
 
             // P(nu-->nu') here for all pairs i == col and j == row
-            Msc[i][j]= KR[i].Kernel(omp) * omega_fac;
+            Msc[i][j]= Int_wi[j] * theta * KR[i].Kernel(omp);
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }
     }
+#ifdef OPENMP_ACTIVATED
+#pragma omp barrier
+#endif
 
     if(verbosity_scat_matrix>0)
         cout << " compute_scattering_matrix :: done." << endl << endl;
@@ -245,29 +157,178 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         // reset matrix
         for(int j=0; j<npx; j++) Msc[i][j]=0.0;
 
-        double omega_fac=Int_wi[i] * theta; // dnu' weight
-        double om0=xarr[i]*theta;
+        double om0=xarr[i]*theta, omp=xarr[i]*theta;
+
+        // avoid errors at low energies using exact expressions
+        if(type=="exact")
+        {
+            if(om0<1.0e-4 && theta<1.0e-4) kernel=thermal_kernel_SS_C;
+            else kernel=thermal_kernel_exact;
+        }
+
         // diagonal element for reference
-        Msc[i][i]= kernel(om0, om0, theta) * omega_fac;
+        Msc[i][i]= Int_wi[i] * theta * kernel(om0, omp, theta);
 
         for(int j=i+1; j<npx; j++) //xp>x
         {
-            double omega_fac=Int_wi[j] * theta; // dnu' weight
-            double omp=xarr[j]*theta;
+            omp=xarr[j]*theta;
 
             // P(nu-->nu') here for all pairs i == col and j == row
-            Msc[i][j]= kernel(om0, omp, theta) * omega_fac;
+            Msc[i][j]= Int_wi[j] * theta * kernel(om0, omp, theta);
+
+            if(abs(Msc[i][j]/Msc[i][i])<epsilon && j-(i+1)>=4) break;
+        }
+
+        for(int j=i-1; j>=0; j--) //xp<x
+        {
+            omp=xarr[j]*theta;
+
+            // P(nu-->nu') here for all pairs i == col and j == row
+            Msc[i][j]= Int_wi[j] * theta * kernel(om0, omp, theta);
+
+            if(abs(Msc[i][j]/Msc[i][i])<epsilon && i-1-j>=4) break;
+        }
+    }
+#ifdef OPENMP_ACTIVATED
+#pragma omp barrier
+#endif
+
+    if(verbosity_scat_matrix>0)
+        cout << " compute_scattering_matrix :: done." << endl << endl;
+}
+
+//==================================================================================================
+// routines to do bin averaging
+//==================================================================================================
+struct Integral_Mij_bin_average
+{
+    Kernel_representation *KR;
+    bool add_stim;
+    double x0, om0, theta, theta_g;
+
+    Integral_Mij_bin_average()
+    {
+        KR=NULL;
+        add_stim=0;
+    }
+};
+
+double Kernel_weight_func(double x, void *p) // x == hnu/kTg == om/theta_g
+{
+    Integral_Mij_bin_average &IM=*(Integral_Mij_bin_average *)p;
+
+    if(x==-1.0e+300) return IM.KR->Get_omega_min()/IM.theta_g;
+    if(x== 1.0e+300) return IM.KR->Get_omega_max()/IM.theta_g;
+
+    double om=x*IM.theta_g;
+    double stim=(IM.add_stim ? one_minus_exp_mx(IM.x0)/one_minus_exp_mx(x) : 1.0);
+
+    double K=0.0;
+    if(IM.om0<1.0e-4 && IM.theta<1.0e-4) K=thermal_kernel_SS_C(IM.om0, om, IM.theta);
+    else K=IM.KR->Kernel(om);
+    //else K=thermal_kernel_exact(IM.om0, om, IM.theta);
+    //K=IM.KR->Kernel(om);
+
+    return K * stim * IM.theta_g; // domp = theta_g dx --> factor of theta_g
+}
+
+void fill_Msc_bin_averaged_II(int i, int j, const vector<double> &xarr,
+                              double theta, double theta_g,
+                              vector<vector<double> > &Msc,
+                              vector<Kernel_representation> &KR,
+                              bool add_stim=0)
+{
+    Integral_Mij_bin_average IM;
+    IM.KR=&KR[i];
+    IM.add_stim=add_stim;
+    IM.x0 =xarr[i];
+    IM.om0=IM.x0*theta_g;
+    IM.theta  =theta;
+    IM.theta_g=theta_g;
+
+    //--------------------------------------------------------------------------
+    // order >=2 is recommended to get good energy conservation
+    // comment JC: 2-5 all seem to be giving similar results really...
+    //--------------------------------------------------------------------------
+    Lagrange_Polynomial_weights(j, 3, xarr, Msc[i], Kernel_weight_func, &IM, 0);
+
+    return;
+}
+
+//==================================================================================================
+// Routines for scattering matrix setups
+//--------------------------------------------------------------------------------------------------
+// inputs:
+// xarr    : contains frequency grid points x=h nu/kTg = omega/theta_g
+// theta   : kTe/mc^2
+// theta_g : kTg/mc^2
+//
+// outputs: Msc = int Pij dxj_bin * theta_g
+//
+// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
+// epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
+// add_stim: optional parameter to add stimulated scattering effect in blackbody radiation field
+//==================================================================================================
+void compute_scattering_matrix_bin_averaged_II(const vector<double> &xarr,
+                                               double theta, double theta_g,
+                                               vector<vector<double> > &Msc,
+                                               vector<Kernel_representation> &KR,
+                                               string type,
+                                               double epsilon, bool add_stim)
+{
+    string funcname="compute_scattering_matrix_bin_averaged";
+    if(verbosity_scat_matrix>0)
+        cout << " " + funcname + " :: setting up scattering matrix for The= " << theta << endl;
+
+    int npx=xarr.size();
+
+    // create matrix
+    if((int)Msc.size()!=npx)
+    {
+        Msc.clear();
+        vector<double> zeros(npx, 0.0);
+        for(int i=0; i<npx; i++) Msc.push_back(zeros);
+    }
+
+    if((int)KR.size()!=npx) KR.resize(npx);
+
+    //--------------------------------------------------------------------------
+    // make vector of Kernel representations
+    //--------------------------------------------------------------------------
+    int nK=80; // JC: for higher precision, this parameter should be increased
+    double omin=xarr[0]*theta_g/3.0, omax=xarr.back()*theta_g*3.0;
+    for(int i=0; i<npx; i++) KR[i].allocate_splines(nK);
+
+#ifdef OPENMP_ACTIVATED
+#pragma omp parallel for default(shared) schedule(dynamic)
+#endif
+    for(int i=0; i<npx; i++)
+        KR[i].init(omin, xarr[i]*theta_g, omax, nK, theta, epsilon/2.0, epsilon/2.0, -1, 0);
+#ifdef OPENMP_ACTIVATED
+#pragma omp barrier
+#endif
+
+#ifdef OPENMP_ACTIVATED
+#pragma omp parallel for default(shared) schedule(dynamic)
+#endif
+    for(int i=0; i<npx; i++) //x
+    {
+        // reset matrix
+        for(int j=0; j<npx; j++) Msc[i][j]=0.0;
+
+        // diagonal element for reference
+        fill_Msc_bin_averaged_II(i, i, xarr, theta, theta_g, Msc, KR, add_stim);
+
+        for(int j=i+1; j<npx; j++) //xp>x
+        {
+            fill_Msc_bin_averaged_II(i, j, xarr, theta, theta_g, Msc, KR, add_stim);
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }
 
         for(int j=i-1; j>=0; j--) //xp<x
         {
-            double omega_fac=Int_wi[j] * theta; // dnu' weight
-            double omp=xarr[j]*theta;
-
-            // P(nu-->nu') here for all pairs i == col and j == row
-            Msc[i][j]= kernel(om0, omp, theta) * omega_fac;
+            fill_Msc_bin_averaged_II(i, j, xarr, theta, theta_g, Msc, KR, add_stim);
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }
@@ -277,7 +338,284 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
 #endif
 
     if(verbosity_scat_matrix>0)
-        cout << " compute_scattering_matrix :: done." << endl << endl;
+        cout << " " + funcname + " :: done." << endl << endl;
+}
+
+//==================================================================================================
+//
+// old versions
+//
+//==================================================================================================
+struct Integral_Info_Mij
+{
+    int i, k; // k== 0, 1
+    const vector<double> *xa;
+    double theta, om0, theta_g;
+    double (*kernel)(double omega0, double omega, double theta);
+    Kernel_representation *KR;
+    bool add_stim;
+
+    Integral_Info_Mij()
+    {
+        xa=NULL;
+        kernel=NULL;
+        KR=NULL;
+        add_stim=0;
+    }
+};
+
+void Get_oml_omu(int i, const vector<double> &xa, double theta, double &oml, double &omu)
+{
+    if(i==0)
+    {
+        oml=xa[0]*theta;
+        omu=xa[1]*theta;
+    }
+    else if(i==(int)xa.size()-1)
+    {
+        oml=xa[(int)xa.size()-2]*theta;
+        omu=xa[(int)xa.size()-1]*theta;
+    }
+    else
+    {
+        oml=(xa[i]+xa[i-1])/2.0*theta;
+        omu=(xa[i]+xa[i+1])/2.0*theta;
+    }
+
+    return;
+}
+
+double Weight_Polynomial(int i, int k, double x, const vector<double> &xa)
+{
+    //return 1.0;
+    if(k==0) return 1.0;
+    if(k==1) return (x-xa[i])/(xa[i+1]-xa[i-1]);
+    return 0.0;
+}
+
+//==================================================================================================
+double dMij_bin_averaged(double om, void *p)
+{
+    Integral_Info_Mij &d=*(Integral_Info_Mij *)p;
+
+    double stim=(d.add_stim ? one_minus_exp_mx(d.om0/d.theta_g)/one_minus_exp_mx(om/d.theta_g) : 1.0);
+
+    return d.kernel(d.om0, om, d.theta) * stim * Weight_Polynomial(d.i, d.k, om/d.theta_g, *d.xa);
+}
+
+double Mij_bin_averaged(int i, int k, const vector<double> &xa,
+                        double om0, double oml, double omp, double omu, double theta,
+                        double (*kernel)(double omega0, double omega, double theta),
+                        bool add_stim=0)
+{
+    Integral_Info_Mij d;
+    d.i=i;
+    d.k=k;
+    d.xa=&xa;
+    d.theta=theta;
+    d.om0=om0;
+    d.theta_g=theta;
+    d.kernel=kernel;
+    d.add_stim=add_stim;
+
+    //    // use analytic formula for non-relativistic limit
+    //    if(d.om0<1.0e-4 && d.theta<1.0e-4) d.kernel=thermal_kernel_SS_C;
+    //    else d.kernel=thermal_kernel_exact;
+    //    d.kernel=thermal_kernel_SS_C;
+
+    double a=oml, b=omu;
+    double epsrel=1.0e-6, epsabs=1.0e-50;
+    double r=0.0;
+
+    if(a<om0 && om0<b) // split integral across cusp...
+    {
+        r=Integrate_using_Patterson_adaptive(a, om0, epsrel, epsabs, dMij_bin_averaged, &d);
+        r+=Integrate_using_Patterson_adaptive(om0, b, epsrel, epsabs, dMij_bin_averaged, &d);
+    }
+    else r=Integrate_using_Patterson_adaptive(a, b, epsrel, epsabs, dMij_bin_averaged, &d);
+
+    return r;
+}
+
+//==================================================================================================
+double dMij_bin_averaged_KR(double om, void *p)
+{
+    Integral_Info_Mij &d=*(Integral_Info_Mij *)p;
+
+    double stim=(d.add_stim ? one_minus_exp_mx(d.om0/d.theta_g)/one_minus_exp_mx(om/d.theta_g) : 1.0);
+
+    return d.KR->Kernel(om) * stim * Weight_Polynomial(d.i, d.k, om/d.theta_g, *d.xa);
+}
+
+double Mij_bin_averaged(int i, int k, const vector<double> &xa,
+                        double om0, double oml, double omp, double omu, double theta,
+                        Kernel_representation &KR,
+                        bool add_stim=0)
+{
+    Integral_Info_Mij d;
+    d.i=i;
+    d.k=k;
+    d.xa=&xa;
+    d.theta=theta;
+    d.om0=om0;
+    d.theta_g=theta;
+    d.KR=&KR;
+    d.add_stim=add_stim;
+
+    double a=max(oml, KR.Get_omega_min()), b=min(omu, KR.Get_omega_max());
+    double epsrel=1.0e-6, epsabs=1.0e-50;
+    double r=0.0;
+
+    if(a>=b) return 0.0;
+
+    if(a<om0 && om0<b) // split integral across cusp...
+    {
+        r=Integrate_using_Patterson_adaptive(a, om0, epsrel, epsabs, dMij_bin_averaged_KR, &d);
+        r+=Integrate_using_Patterson_adaptive(om0, b, epsrel, epsabs, dMij_bin_averaged_KR, &d);
+    }
+    else r=Integrate_using_Patterson_adaptive(a, b, epsrel, epsabs, dMij_bin_averaged_KR, &d);
+
+    //    if(isinf(r) || isnan(r))
+    //    {
+    //        cout << i << " " << k << " " << theta << endl;
+    //        throw_error("matrix element bad", "", 1);
+    //    }
+
+    return r;
+}
+
+void fill_Msc_bin_averaged(int i, int j, const vector<double> &xarr, double theta,
+                           vector<vector<double> > &Msc,
+                           double (*kernel)(double omega0, double omega, double theta),
+                           bool add_stim=0)
+{
+    double om0=xarr[i]*theta, oml, omp=xarr[j]*theta, omu;
+
+    // get limits of frequency bin
+    Get_oml_omu(j, xarr, theta, oml, omu);
+
+    Msc[i][j]+=Mij_bin_averaged(j, 0, xarr, om0, oml, omp, omu, theta, kernel, add_stim);
+
+//    if(j>0 && j<(int)xarr.size()-1)
+//    {
+//        double Mtemp=Mij_bin_averaged(j, 1, xarr, om0, oml, omp, omu, theta, kernel, add_stim);
+//        Msc[i][j+1]+=Mtemp;
+//        Msc[i][j-1]-=Mtemp;
+//    }
+
+    return;
+}
+
+void fill_Msc_bin_averaged(int i, int j, const vector<double> &xarr, double theta,
+                           vector<vector<double> > &Msc,
+                           vector<Kernel_representation> &KR,
+                           bool add_stim=0)
+{
+    double om0=xarr[i]*theta, oml, omp=xarr[j]*theta, omu;
+
+    // get limits of frequency bin
+    Get_oml_omu(j, xarr, theta, oml, omu);
+
+    Msc[i][j]+=Mij_bin_averaged(j, 0, xarr, om0, oml, omp, omu, theta, KR[i], add_stim);
+
+    if(j>0 && j<(int)xarr.size()-1)
+    {
+        double Mtemp=Mij_bin_averaged(j, 1, xarr, om0, oml, omp, omu, theta, KR[i], add_stim);
+        Msc[i][j+1]+=Mtemp;
+        Msc[i][j-1]-=Mtemp;
+    }
+
+    return;
+}
+
+//==================================================================================================
+// Routines for scattering matrix setups
+//--------------------------------------------------------------------------------------------------
+// inputs:
+// xarr  : contains frequency grid points x=h nu/kTe = omega/theta
+// theta : kTe/mc^2
+//
+// outputs: Msc = int Pij dxj_bin * theta
+//
+// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
+// epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
+// add_stim: optional parameter to add stimulated scattering effect in blackbody radiation field
+//==================================================================================================
+void compute_scattering_matrix_bin_averaged(const vector<double> &xarr, double theta,
+                                            vector<vector<double> > &Msc,
+                                            string type,
+                                            double epsilon,
+                                            bool add_stim)
+{
+    string funcname="compute_scattering_matrix_bin_averaged";
+    if(verbosity_scat_matrix>0)
+        cout << " " + funcname + " :: setting up scattering matrix for The= " << theta << endl;
+
+    int npx=xarr.size();
+
+//    double (*kernel)(double omega0, double omega, double theta)=NULL;
+//    if(type=="exact") kernel=thermal_kernel_exact;
+//    else if(type=="SS_K") kernel=thermal_kernel_SS_K;
+//    else if(type=="SS_C") kernel=thermal_kernel_SS_C;
+//    else throw_error(funcname, "kernel type not available", 1);
+
+    // create matrix
+    if((int)Msc.size()!=npx)
+    {
+        Msc.clear();
+        vector<double> zeros(npx, 0.0);
+        for(int i=0; i<npx; i++) Msc.push_back(zeros);
+    }
+
+    // make vector of Kernel representations
+    int nK=30;
+    vector<Kernel_representation> KR(npx);
+    double omin=xarr[0]*theta/3.0, omax=xarr.back()*theta*3.0;
+    for(int i=0; i<npx; i++) KR[i].allocate_splines(nK);
+
+#ifdef OPENMP_ACTIVATED
+#pragma omp parallel for default(shared) schedule(dynamic)
+#endif
+    for(int i=0; i<npx; i++)
+        KR[i].init(omin, xarr[i]*theta, omax, nK, theta, epsilon, epsilon, -1, 0);
+#ifdef OPENMP_ACTIVATED
+#pragma omp barrier
+#endif
+
+#ifdef OPENMP_ACTIVATED
+#pragma omp parallel for default(shared) schedule(dynamic)
+#endif
+    for(int i=0; i<npx; i++) //x
+    {
+        // reset matrix
+        for(int j=0; j<npx; j++) Msc[i][j]=0.0;
+
+        // diagonal element for reference
+        //fill_Msc_bin_averaged(i, i, xarr, theta, Msc, kernel, add_stim);
+        fill_Msc_bin_averaged(i, i, xarr, theta, Msc, KR, add_stim);
+
+        for(int j=i+1; j<npx; j++) //xp>x
+        {
+            //fill_Msc_bin_averaged(i, j, xarr, theta, Msc, kernel, add_stim);
+            fill_Msc_bin_averaged(i, j, xarr, theta, Msc, KR, add_stim);
+
+            if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
+        }
+
+        for(int j=i-1; j>=0; j--) //xp<x
+        {
+            //fill_Msc_bin_averaged(i, j, xarr, theta, Msc, kernel, add_stim);
+            fill_Msc_bin_averaged(i, j, xarr, theta, Msc, KR, add_stim);
+
+            if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
+        }
+    }
+#ifdef OPENMP_ACTIVATED
+#pragma omp barrier
+#endif
+
+    if(verbosity_scat_matrix>0)
+        cout << " " + funcname + " :: done." << endl << endl;
 }
 
 //==================================================================================================
@@ -451,6 +789,7 @@ void Msc_representation::update_moments(const vector<double> &xearr,
 
     int npx=xearr.size();
 
+    Sigmas.clear();
     Sigmas.resize(maxMom+1, vector<double>(npx, 0.0));
 
 #ifdef OPENMP_ACTIVATED
@@ -548,6 +887,7 @@ void Msc_representation_Te :: init(const vector<double> &xearr,
     npThe=init_xarr_dens(The_min, The_max, The_arr, logdens_The, 0);
 
     Msc_The.resize(npThe);
+    Msc_full.clear();
     Msc_full.resize(xearr.size(), vector<double>(xearr.size(), 0.0));
     Msc_sparse.clear();
 
@@ -597,7 +937,7 @@ double Msc_representation_Te :: Msc(int i, int j, double The)
 //==================================================================================================
 void Msc_representation_Te :: Get_Msc(double The, vector<vector<double> > &Msc)
 {
-    if((int)Msc.size()!=npx) Msc.resize(npx, vector<double>(npx, 0.0));
+    if((int)Msc.size()!=npx) Msc.resize(npx, vector<double>(npx));
 
     if(fabs(The_curr/The-1.0)>eps_interpol)
     {
@@ -679,8 +1019,8 @@ void Integral_weights(const double *xarr, double *Int_wi, int npointsx)
     vector<double> vecx(npointsx), vecw;
     for(int i=0; i<npointsx; i++) vecx[i]=xarr[i];
 
-    //CSpack_scattering_matrix::Integral_weights_trapz(vecx, vecw); // simplest rule
-    CSpack_scattering_matrix::Integral_weights(vecx, vecw); // 5 points rule [more accurate]
+    //CSpack_weights::Integral_weights_trapz(vecx, vecw); // simplest rule
+    CSpack_weights::Integral_weights(vecx, vecw); // 5 points rule [more accurate]
 
     for(int i=0; i<npointsx; i++) Int_wi[i]=vecw[i];
 
