@@ -25,8 +25,12 @@
 //-------------------------------------------------------------------------------------------------------
 #define SQRT_2 1.4142135623730950488
 
+const double G11_Int_pl=1.644934066848226;
 const double G21_Int_pl=2.404113806319189;
 const double G31_Int_pl=6.493939402266829;
+const double G41_Int_pl=24.88626612344088;
+const double G51_Int_pl=122.0811674381339;
+
 const double alpha_rho_pl=G21_Int_pl/G31_Int_pl;
 const double alpha_mu=0.4561442592067353;
 const double I4_Int_pl =25.975757609067315;

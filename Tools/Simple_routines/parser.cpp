@@ -73,14 +73,18 @@ int parser_read_T(const struct file_content &pfc, string var_id, T &val, bool &f
     {
         string str=pfc.lines[l];
         size_t pos=str.find(var_id);
+        size_t pos_found=pos;
         
         // continue if at end of string
-        if(pos>=str.length()) continue;
+        if(pos>=str.length() || pos_found>0) continue; // fixed problem with finding partial strings [JC]
      
         // if string is found, continue search from positions on
         pos=str.find("=", pos)+1;
-        for(; pos<str.length(); pos++) if(str[pos]!=' ') break;
-            
+        // check that this was really the callid and not a 'value'
+        if(pos<=pos_found) continue;
+        
+        for(; pos<str.length(); pos++) if(str[pos]!=' ' || str[pos]=='#') break;
+        
         // now at position of entry and need to convert it (everything after entry is omitted)
         istringstream iss(str.substr(pos));
         iss >> val;
@@ -100,6 +104,135 @@ int parser_read(const struct file_content &pfc, string var_id, double &val, bool
 
 int parser_read(const struct file_content &pfc, string var_id, string &val, bool &found, bool show_entry)
 { return parser_read_T(pfc, var_id, val, found, show_entry); }
+
+//====================================================================================================================
+int parser_read_fullstring(const struct file_content &pfc, string var_id, string &val,
+                           bool &found, bool show_entry)
+{
+    found = 0;
+    
+    for(int l=0; l<(int)pfc.lines.size(); l++)
+    {
+        string str=pfc.lines[l];
+        size_t pos=str.find(var_id);
+        
+        // continue if at end of string
+        if(pos>=str.length()) continue;
+     
+        // if string is found, continue search from positions on
+        pos=str.find("=", pos)+1;
+        for(; pos<str.length(); pos++) if(str[pos]!=' ') break;
+        
+        size_t pos_start=pos;
+        for(; pos<str.length(); pos++) if(str[pos]=='#') break;
+        
+        val = str.substr(pos_start, pos);
+        
+        found = 1;
+    }
+    
+    if(show_entry==1 && found==1) cout << var_id << " = " << val << endl;
+    
+    return 0;
+}
+
+//====================================================================================================================
+int parser_read(const struct file_content &pfc, string var_id,
+                vector<double> &dvals,
+                bool &found, bool show_entry)
+{
+    found = 0;
+    double val;
+    dvals.clear();
+    
+    for(int l=0; l<(int)pfc.lines.size(); l++)
+    {
+        string str=pfc.lines[l];
+        size_t pos=str.find(var_id);
+        size_t pos_found=pos;
+        
+        // continue if at end of string
+        if(pos>=str.length()) continue;
+     
+        // if string is found, continue search from positions on
+        pos=str.find("=", pos)+1;
+        // check that this was really the callid and not a 'value'
+        if(pos<=pos_found) continue;
+        
+        for(; pos<str.length(); pos++) if(str[pos]!=' ' || str[pos]=='#') break;
+        
+        // now at position of entry and need to convert it (everything after entry is omitted)
+        istringstream iss(str.substr(pos));
+        do
+        {
+            iss >> val;
+            if(dvals.size()==0) dvals.push_back(val);
+            else if(val!=dvals.back()) dvals.push_back(val);
+        }
+        while(!iss.eof());
+        
+        found = 1;
+    }
+    
+    if(show_entry==1 && found==1)
+    {
+        cout << var_id << " = ";
+        for(int k=0; k<(int)dvals.size(); k++)
+            cout << dvals[k] << " ";
+        cout << endl;
+    }
+    
+    return 0;
+}
+
+//====================================================================================================================
+int parser_read(const struct file_content &pfc, string var_id,
+                vector<string> &svals,
+                bool &found, bool show_entry)
+{
+    found = 0;
+    string val;
+    svals.clear();
+    
+    for(int l=0; l<(int)pfc.lines.size(); l++)
+    {
+        string str=pfc.lines[l];
+        size_t pos=str.find(var_id);
+        size_t pos_found=pos;
+        
+        // continue if at end of string
+        if(pos>=str.length()) continue;
+     
+        // if string is found, continue search from positions on
+        pos=str.find("=", pos)+1;
+        // check that this was really the callid and not a 'value'
+        if(pos<=pos_found) continue;
+        
+        for(; pos<str.length(); pos++) if(str[pos]!=' ' || str[pos]=='#') break;
+        
+        // now at position of entry and need to convert it (everything after entry is omitted)
+        istringstream iss(str.substr(pos));
+        do
+        {
+            iss >> val;
+            if(svals.size()==0) svals.push_back(val);
+            else if(val!=svals.back()) svals.push_back(val);
+        }
+        while(!iss.eof());
+        
+        found = 1;
+    }
+    
+    if(show_entry==1 && found==1)
+    {
+        cout << var_id << " = ";
+        for(int k=0; k<(int)svals.size(); k++)
+            cout << svals[k] << " ";
+        cout << endl;
+    }
+    
+    return 0;
+}
 
 //====================================================================================================================
 template <class T>

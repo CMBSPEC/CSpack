@@ -43,7 +43,7 @@ int main(int narg, char *args[])
     cout << Compute_muc_N(-0.001) << " " << Compute_muc_rho(-0.001) << " "
          << Compute_Drho_rho(-0.0001) << " " << Compute_muc_N(-0.0001)/1.401 << endl;
 
-    double omega0=0.000001, p0=20.0;
+//    double omega0=0.000001, p0=20.0;
 
 //    cout << compute_exact_moments_analytical(omega0, p0, 0) << endl;
 //    cout << compute_exact_moments_analytical(omega0, p0, 1) << endl;

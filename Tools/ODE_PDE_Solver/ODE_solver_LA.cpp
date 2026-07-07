@@ -27,12 +27,12 @@ namespace ODE_solver_LA
     // Linear-Algebra part
     //
     //===================================================================================
-    
+
     //===================================================================================
     // All these routines are for simple linear algebra operations assuming that the
     // dimension of the problem is small (i.e. comparable to a few like in RECFAST)
     //===================================================================================
-    
+
     //===================================================================================
     // scalar product c=a*b
     //===================================================================================
@@ -42,21 +42,21 @@ namespace ODE_solver_LA
         for(unsigned int i=0; i<a.size(); i++) scalar+=a[i]*b[i];
         return scalar;
     }
-    
+
     //===================================================================================
     // norm of vector a
     //===================================================================================
     double norm(const vector<double> &a){ return sqrt(dot(a, a)); }
-    
+
     //===================================================================================
     // compute c=A*b (i.e. matrix times vector)
     //===================================================================================
-    void A_times_b_is_c(const ODE_solver_matrix &Jac, 
-                        const vector<double> &b, 
+    void A_times_b_is_c(const ODE_solver_matrix &Jac,
+                        const vector<double> &b,
                         vector<double> &c)
     {
         //------------------------------------------------------
-        // here it is assumed that A is symmetric with dimension 
+        // here it is assumed that A is symmetric with dimension
         // equal to b & c; c is overwritten
         //------------------------------------------------------
         for(unsigned int j=0; j<c.size(); j++) c[j]=0.0;
@@ -76,7 +76,7 @@ namespace ODE_solver_LA
 
         return;
     }
-    
+
     //===================================================================================
     // get inverse diagonal elements of matrix A
     //===================================================================================
@@ -88,18 +88,18 @@ namespace ODE_solver_LA
         for(int i=0; i<Jac.dim; i++)
         {
             d[i]=Jac.A[Jac.diags[i]];
-            
+
             if(d[i]==0)
-            { 
-                cerr << " error in preconditioner for element: " << i << endl; 
-                exit(0); 
+            {
+                cerr << " error in preconditioner for element: " << i << endl;
+                exit(0);
             }
             else d[i]=1.0/d[i];
         }
-        
+
         return;
     }
-    
+
     //===================================================================================
     //
     // ODE_solver_matrix routines
@@ -119,22 +119,22 @@ namespace ODE_solver_LA
         A.push_back(Jij);
         col.push_back(c);
         row.push_back(r);
-        
+
         if(c==r) diags.push_back((int)(A.size()-1));
-        
+
         // save column and row info
         ODE_solver_el_info_ind_row cdum;
         ODE_solver_el_info_ind_col rdum;
-        
+
         cdum.index=rdum.index=A.size()-1;
         cdum.row=r; rdum.col=c;
-        
+
         if(col_to_ind_row.size()==0) col_to_ind_row.resize(dim);
         col_to_ind_row[c].push_back(cdum);
-        
+
         if(row_to_ind_col.size()==0) row_to_ind_col.resize(dim);
         row_to_ind_col[r].push_back(rdum);
-        
+
         // save diagional info
         if(c==r)
         {
@@ -163,9 +163,9 @@ namespace ODE_solver_LA
     void ODE_solver_matrix::show_entry(int c, int r)
     {
         cout << " ODE_solver_matrix::show_entry : col = " << c << " row= " << r << endl;
-        
+
         unsigned long j=Get_element_index(c, r);
-        
+
         if(j==(unsigned long)dim*dim+10) cout << " no entry (==0.0) " << endl;
         else cout << scientific << " Jij = " << A[j] << endl;
     }
@@ -173,24 +173,24 @@ namespace ODE_solver_LA
     void ODE_solver_matrix::show_entries_col(int c)
     {
         int n_entries=col_to_ind_row[c].size();
-        
+
         cout << " ODE_solver_matrix::show_entries_col : col = " << c << endl;
-        
+
         for(int i=0; i<n_entries; i++)
         {
             col_to_ind_row[c][i].show_entry();
             cout << scientific << " Jij = " << A[col_to_ind_row[c][i].index] << endl;
         }
-        
+
         cout << endl;
     }
 
     void ODE_solver_matrix::show_entries_row(int r)
     {
         int n_entries=row_to_ind_col[r].size();
-    
+
         cout << " ODE_solver_matrix::show_entries_row : row = " << r << endl;
-    
+
         for(int i=0; i<n_entries; i++)
         {
             row_to_ind_col[r][i].show_entry();
@@ -216,13 +216,14 @@ namespace ODE_solver_LA
                 cout.width(4);
                 cout << left << scientific << Get_element(c, r) << "  ";
             }
-            
+
             if(b.size()>0) cout << "  ||  " << b[r] << endl << endl;
+            else cout << endl;
         }
 
         //show_entry(1, 2);
         //show_entries_col(1);
-        wait_f_r();
+        //wait_f_r();
         return;
     }
 
@@ -236,22 +237,22 @@ namespace ODE_solver_LA
     //===================================================================================
     // Iterative biconjugate gradiant routine -- BiCGSTAB
     //
-    // BiCGSTAB solves the unsymmetric linear system Ax = b 
+    // BiCGSTAB solves the unsymmetric linear system Ax = b
     // using the Preconditioned BiConjugate Gradient Stabilized method
     //
-    // BiCGSTAB follows the algorithm described on p. 27 of the 
+    // BiCGSTAB follows the algorithm described on p. 27 of the
     // SIAM Templates book.
     //
     // The return value indicates convergence within max_iter (input)
     // iterations (0), or no convergence within max_iter iterations (1).
     //
     // Upon successful return, output arguments have the following values:
-    //  
+    //
     //        x  --  approximate solution to Ax = b
     // max_iter  --  the number of iterations performed before the
     //               tolerance was reached
     //      tol  --  the residual after the final iteration
-    //  
+    //
     // This routine was adapted from the IML++ http://math.nist.gov/iml++/
     //===================================================================================
     int BiCGSTAB_JC(const ODE_solver_matrix &Jac, const vector<double> &b,
@@ -264,43 +265,43 @@ namespace ODE_solver_LA
         vector<double> p(neq), phat(neq), s(neq), shat(neq);
         vector<double> t(neq), v(neq), r(neq), rtilde(neq);
         vector<double> invdiag(neq);
-        
+
         //------------------------------------------------------
         // this is to precondition the Matrix (i.e. A=M*Atilde)
         // here simply the inverse diagonal elements are used
         //------------------------------------------------------
         Get_inverse_diags(Jac, invdiag);
-        
+
         double normb = norm(b);
         //------------------------------------------------------
         // r = b - A*x
         //------------------------------------------------------
         A_times_b_is_c(Jac, x, r);
-        for(int i=0; i<neq; i++) r[i]=b[i]-r[i]; 
+        for(int i=0; i<neq; i++) r[i]=b[i]-r[i];
         //
         rtilde = r;
-        
+
         if (normb == 0.0) normb = 1;
-        
-        if ((resid = norm(r) / normb) <= tol) 
+
+        if ((resid = norm(r) / normb) <= tol)
         {
             tol = resid;
             max_iter = 0;
             return 0;
         }
-        
-        for (int k = 1; k <= max_iter; k++) 
+
+        for (int k = 1; k <= max_iter; k++)
         {
             rho_1 = dot(rtilde, r);
-            if (rho_1 == 0) 
+            if (rho_1 == 0)
             {
                 tol = norm(r) / normb;
                 max_iter = k;
                 return 2;
             }
-            
+
             if (k == 1) p = r;
-            else 
+            else
             {
                 beta = (rho_1/rho_2) * (alpha/omega);
                 for(int i=0; i<neq; i++) p[i] = r[i] + beta * (p[i] - omega * v[i]);
@@ -309,16 +310,16 @@ namespace ODE_solver_LA
             // preconditioning phat
             //------------------------------------------------------
             for(int i=0; i<neq; i++) phat[i]=invdiag[i]*p[i];
-            
+
             //------------------------------------------------------
             // v = A * phat;
             //------------------------------------------------------
             A_times_b_is_c(Jac, phat, v);
-            
+
             alpha = rho_1 / dot(rtilde, v);
             for(int i=0; i<neq; i++) s[i] = r[i] - alpha * v[i];
-            
-            if ((resid = norm(s)/normb) < tol) 
+
+            if ((resid = norm(s)/normb) < tol)
             {
                 for(int i=0; i<neq; i++) x[i] += alpha * phat[i];
                 tol = resid;
@@ -329,33 +330,33 @@ namespace ODE_solver_LA
             // preconditioning shat
             //------------------------------------------------------
             for(int i=0; i<neq; i++) shat[i]=invdiag[i]*s[i];
-            
+
             //------------------------------------------------------
             // t = A * shat;
             //------------------------------------------------------
             A_times_b_is_c(Jac, shat, t);
-            
+
             omega = dot(t,s) / dot(t,t);
             //
             for(int i=0; i<neq; i++) x[i] += alpha * phat[i] + omega * shat[i];
             for(int i=0; i<neq; i++) r[i] = s[i] - omega * t[i];
-            
+
             rho_2 = rho_1;
-            if ((resid = norm(r) / normb) < tol) 
+            if ((resid = norm(r) / normb) < tol)
             {
                 tol = resid;
                 max_iter = k;
                 return 0;
             }
-            
-            if (omega == 0) 
+
+            if (omega == 0)
             {
                 tol = norm(r) / normb;
                 max_iter = k;
                 return 3;
             }
         }
-        
+
         tol = resid;
         return 1;
     }
@@ -365,12 +366,12 @@ namespace ODE_solver_LA
     {
         int iterate_again=-1;
         resid=0.0;
-        
+
         for(int i=0; i<neq; i++)
         {
             double dx=abs((xi[i]-x[i])/(1.0e-300+x[i]));
             resid+=dx*dx;
-            
+
             //cout << i << " " << dx << " " << xi[i] << endl;
             if(dx>tol){ iterate_again=1; break; }
         }
@@ -388,7 +389,7 @@ namespace ODE_solver_LA
     {
         int neq=b.size();
         double normb = norm(b);
-        
+
         // return for trivial equation A * x = 0
         if(normb==0.0){ for(int i=0; i<neq; i++) x[i]=0.0; max_iter=0; return 0; }
 
@@ -396,7 +397,7 @@ namespace ODE_solver_LA
         vector<double> p(neq), phat(neq), s(neq), shat(neq);
         vector<double> t(neq), v(neq), r(neq), rtilde(neq);
         vector<double> invdiag(neq), xold;
-        
+
         double resid=0.0;
         int iterate_again_max=4, iterate_again=iterate_again_max;
 
@@ -416,19 +417,19 @@ namespace ODE_solver_LA
         for(int i=0; i<neq; i++) r[i]=b[i]-r[i];
         rtilde = r;
         xold = x;
-        
+
 //        if ((resid = norm(r) / normb) <= tol)
 //        {
 //            tol = resid;
 //            max_iter = 0;
 //            return 0;
 //        }
-        
+
         for (int k = 1; k <= max_iter; k++)
         {
             rho_1 = dot(rtilde, r);
             if (rho_1 == 0) { tol = norm(r) / normb; return 2; }
-            
+
             if (k == 1) p = r;
             else
             {
@@ -439,32 +440,32 @@ namespace ODE_solver_LA
             // preconditioning phat
             //------------------------------------------------------
             for(int i=0; i<neq; i++) phat[i]=invdiag[i]*p[i];
-            
+
             //------------------------------------------------------
             // v = A * phat;
             //------------------------------------------------------
             A_times_b_is_c(Jac, phat, v);
-            
+
             alpha = rho_1 / dot(rtilde, v);
             for(int i=0; i<neq; i++) s[i] = r[i] - alpha * v[i];
-            
+
             //------------------------------------------------------
             // preconditioning shat
             //------------------------------------------------------
             for(int i=0; i<neq; i++) shat[i]=invdiag[i]*s[i];
-            
+
             //------------------------------------------------------
             // t = A * shat;
             //------------------------------------------------------
             A_times_b_is_c(Jac, shat, t);
-            
+
             omega = dot(t,s) / dot(t,t);
             //
             for(int i=0; i<neq; i++) x[i] += alpha * phat[i] + omega * shat[i];
             for(int i=0; i<neq; i++) r[i] = s[i] - omega * t[i];
-            
+
             rho_2 = rho_1;
-            
+
             //------------------------------------------------------
             // check result (and make sure it is the same n times)
             //------------------------------------------------------
@@ -476,12 +477,12 @@ namespace ODE_solver_LA
             //------------------------------------------------------
             if(iterate_again==0)
             { tol = resid; max_iter = k; return 0; }
-            
+
             if (omega == 0) { tol = norm(r) / normb; return 3; }
-            
+
             xold = x;
         }
-        
+
         tol = resid;
         return 1;
     }
@@ -494,7 +495,7 @@ namespace ODE_solver_LA
     {
         int neq=b.size();
         double normb = norm(b);
-        
+
         // return for trivial equation A * x = 0
         if(normb==0.0){ for(int i=0; i<neq; i++) x[i]=0.0; max_iter=0; return 0; }
 
@@ -512,19 +513,19 @@ namespace ODE_solver_LA
         A_times_b_is_c(Jac, x, ri);
         for(int i=0; i<neq; i++) ri[i]=b[i]-ri[i];
         rhat=ri;
-        
+
         for (int k = 1; k <= max_iter; k++)
         {
             rho_i = dot(rhat, ri);
             beta = (rho_i / rho_im1) * ( alpha / omega_im1);
-            
+
             // update pim1 --> pi
             for(int i=0; i<neq; i++) pi[i] = ri[i] + beta * (pi[i] - omega_im1 * nui[i]);
 
             // update nuim1 --> nui
             A_times_b_is_c(Jac, pi, nui);
             alpha=rho_i/dot(rhat, nui);
-            
+
             for(int i=0; i<neq; i++) h[i] = x[i] + alpha * pi[i];
 
             //------------------------------------------------------
@@ -537,13 +538,13 @@ namespace ODE_solver_LA
             //------------------------------------------------------
             //if(!iterate_again)
             //{ x=h; tol = resid; max_iter = k; return 0; }
-            
+
             //------------------------------------------------------
             // otherwise continue with other part
             //------------------------------------------------------
             for(int i=0; i<neq; i++) s[i] = ri[i] - alpha * nui[i];
             A_times_b_is_c(Jac, s, t);
-            
+
             omega_i=dot(t, s)/dot(t, t);
 
             for(int i=0; i<neq; i++) xi[i] = h[i] + omega_i * s[i];
@@ -559,10 +560,10 @@ namespace ODE_solver_LA
             //------------------------------------------------------
             if(iterate_again==0)
             { x=xi; tol = resid; max_iter = k; return 0; }
-            
+
             // update rim1 --> ri
             for(int i=0; i<neq; i++) ri[i] = s[i] - omega_i * t[i];
-         
+
             // switch variables
             omega_im1=omega_i;
             rho_im1=rho_i;
@@ -585,8 +586,8 @@ namespace ODE_solver_LA
 
         //for(unsigned int i=0; i<x.size(); i++) x[i]=0.0; // reset x-vector
 
-        ifail = BiCGSTAB_JC(Jac, b, x, maxit, tol);      // Solve linear system
-        //ifail = BiCGSTAB_JC_II(Jac, b, x, maxit, tol);      // Solve linear system
+        //ifail = BiCGSTAB_JC(Jac, b, x, maxit, tol);      // initial version of Solve linear system
+        ifail = BiCGSTAB_JC_II(Jac, b, x, maxit, tol);      // has better convergence
         //ifail = BiCGSTAB_JC_III(Jac, b, x, maxit, tol);      // Solve linear system
 
         if(verbose>0 && ifail!=0)
@@ -627,14 +628,14 @@ namespace ODE_solver_LA
 
             // pivot element of row
             double pivot=M.A[M.diags[r]];
-            
+
             // divide pivot-row by pivot at c>=r
             for(int j=M.row_to_ind_col_diag[r]; j<n_col; j++)
             {
                 long int index=M.row_to_ind_col[r][j].index;
                 M.A[index]/=pivot;
             }
-            
+
             // devide vector by pivot
             b[r]/=pivot;
 
@@ -651,7 +652,7 @@ namespace ODE_solver_LA
                 {
                     // get col index
                     long int index=M.row_to_ind_col[r][j].index;
-                    
+
                     if(M.A[index]==0.0) continue; // save time
 
                     int c=M.row_to_ind_col[r][j].col;
@@ -659,9 +660,9 @@ namespace ODE_solver_LA
                     // eliminate sub-diagonal elements
                     int n_eli_row=M.col_to_ind_row[c].size();
                     // conservative estimate of start index
-                    // [JC: may need checking for general cases...]
+                    // [TODO: may need checking for general cases... JC]
                     int eli_row_start=max(0, M.col_to_ind_row_diag[c]-(c-r));
-                    
+
                     for(int eli_row=eli_row_start; eli_row<n_eli_row; eli_row++)
                         if(M.col_to_ind_row[c][eli_row].row==piv_row)
                         {
@@ -673,7 +674,7 @@ namespace ODE_solver_LA
 
                 // subtract from target
                 b[piv_row]-=M.A[piv_ind]*b[r];
-                    
+
                 // eliminate sub-diagonal element of pivot column
                 M.A[piv_ind]=0.0;
             }
@@ -685,7 +686,7 @@ namespace ODE_solver_LA
         // back-substitution
         //===============================================================================
         for(int k=0; k<M.dim; k++) x[k]=b[k];
-        
+
         for(int c=M.dim-1; c>0; c--)
             for(int subrow=0; subrow<M.col_to_ind_row_diag[c]; subrow++)
             {
@@ -700,49 +701,49 @@ namespace ODE_solver_LA
             for(int k=0; k<M.dim; k++) cout << k << " " << x[k] << endl;
             wait_f_r(" Gauss-JC solver ");
         }
-        
+
         return 0;
     }
 
     //===================================================================================
     // Solving the Matrix Equation A*x == b for x using GSL
     //===================================================================================
-    int ODE_Solver_Solve_LA_system_GSL(ODE_solver_matrix &M, 
-                                       vector<double > &bi, 
-                                       vector<double > &x, 
+    int ODE_Solver_Solve_LA_system_GSL(ODE_solver_matrix &M,
+                                       vector<double > &bi,
+                                       vector<double > &x,
                                        int verbose)
     {
         //cout << " Entering GSL " << endl;
-        
+
         int npxi=bi.size();
-        
+
         if(npxi>10 && verbose>1) M.show_whole_matrix(bi);
 
         vector<double> a_data(npxi*npxi, 0.0);
-        
+
         for(int r=0; r<(int)M.col.size(); r++)
         {
             int ind=M.col[r]+npxi*M.row[r];
             a_data[ind]=M.A[r];
         }
-        
+
         gsl_matrix_view m=gsl_matrix_view_array (&a_data[0], npxi, npxi);
         gsl_vector_view b=gsl_vector_view_array (&bi[0], npxi);
         gsl_vector *x_GSL = gsl_vector_alloc (npxi);
-        
+
         int s;
         gsl_permutation * p = gsl_permutation_alloc (npxi);
         //cout << " LU decomposition " << endl;
         gsl_linalg_LU_decomp (&m.matrix, p, &s);
         //cout << " LU solve " << endl;
         gsl_linalg_LU_solve (&m.matrix, p, &b.vector, x_GSL);
-        
+
         for(int k=0; k<npxi; k++) x[k]=x_GSL->data[k];
-        
+
         gsl_permutation_free (p);
-        gsl_vector_free (x_GSL);    
+        gsl_vector_free (x_GSL);
         a_data.clear();
-        
+
         if(npxi>10 && verbose>2)
         {
             for(int k=0; k<npxi; k++) cout << k << " " << x[k] << endl;
@@ -753,78 +754,78 @@ namespace ODE_solver_LA
     }
 
     //===================================================================================
-    void eliminate_n_lower_plus_phot(int nlow, double fac_el, int i_gamma, int col, int npxi, 
-                                     int n_elim, vector<int> &elim_ind, 
+    void eliminate_n_lower_plus_phot(int nlow, double fac_el, int i_gamma, int col, int npxi,
+                                     int n_elim, vector<int> &elim_ind,
                                      vector<double > &A, vector<double > &bi)
     {
         bi[col]/=fac_el;
         for(int k=1; k<=nlow; k++) bi[col+k]-=A[col+npxi*(col+k)]*bi[col];
-        
+
         bi[i_gamma+0]-=A[col+npxi*(i_gamma+0)]*bi[col];
         bi[i_gamma+1]-=A[col+npxi*(i_gamma+1)]*bi[col];
 
-        for(int i=n_elim-1; i>=0; i--) 
+        for(int i=n_elim-1; i>=0; i--)
         {
             A[elim_ind[i]+npxi*col]/=fac_el;
-            for(int k=1; k<=nlow; k++) 
+            for(int k=1; k<=nlow; k++)
                 A[elim_ind[i]+npxi*(col+k)]-=A[col+npxi*(col+k)]*A[elim_ind[i]+npxi*col];
 
             A[elim_ind[i]+npxi*(i_gamma+0)]-=A[col+npxi*(i_gamma+0)]*A[elim_ind[i]+npxi*col];
             A[elim_ind[i]+npxi*(i_gamma+1)]-=A[col+npxi*(i_gamma+1)]*A[elim_ind[i]+npxi*col];
         }
-        
+
         return;
     }
-    
+
     //===================================================================================
-    void eliminate_n_lower(int nlow, double fac_el, int col, int npxi, 
-                           int n_elim, vector<int> &elim_ind, 
+    void eliminate_n_lower(int nlow, double fac_el, int col, int npxi,
+                           int n_elim, vector<int> &elim_ind,
                            vector<double > &A, vector<double > &bi)
     {
         bi[col]/=fac_el;
         for(int k=1; k<=nlow; k++) bi[col+k]-=A[col+npxi*(col+k)]*bi[col];
-        
-        for(int i=n_elim-1; i>=0; i--) 
+
+        for(int i=n_elim-1; i>=0; i--)
         {
             A[elim_ind[i]+npxi*col]/=fac_el;
-            for(int k=1; k<=nlow; k++) 
+            for(int k=1; k<=nlow; k++)
                 A[elim_ind[i]+npxi*(col+k)]-=A[col+npxi*(col+k)]*A[elim_ind[i]+npxi*col];
         }
-        
+
         return;
     }
-    
+
     //===================================================================================
-    void eliminate_n_lower_plus_pol(int nlow, double fac_el, int i_gamma_P, int col, int npxi, 
-                                     int n_elim, vector<int> &elim_ind, 
+    void eliminate_n_lower_plus_pol(int nlow, double fac_el, int i_gamma_P, int col, int npxi,
+                                     int n_elim, vector<int> &elim_ind,
                                      vector<double > &A, vector<double > &bi)
     {
         bi[col]/=fac_el;
         for(int k=1; k<=nlow; k++) bi[col+k]-=A[col+npxi*(col+k)]*bi[col];
-        
+
         bi[i_gamma_P+0]-=A[col+npxi*(i_gamma_P+0)]*bi[col];
         bi[i_gamma_P+2]-=A[col+npxi*(i_gamma_P+2)]*bi[col];
-        
-        for(int i=n_elim-1; i>=0; i--) 
+
+        for(int i=n_elim-1; i>=0; i--)
         {
             A[elim_ind[i]+npxi*col]/=fac_el;
-            for(int k=1; k<=nlow; k++) 
+            for(int k=1; k<=nlow; k++)
                 A[elim_ind[i]+npxi*(col+k)]-=A[col+npxi*(col+k)]*A[elim_ind[i]+npxi*col];
-            
+
             A[elim_ind[i]+npxi*(i_gamma_P+0)]-=A[col+npxi*(i_gamma_P+0)]*A[elim_ind[i]+npxi*col];
             A[elim_ind[i]+npxi*(i_gamma_P+2)]-=A[col+npxi*(i_gamma_P+2)]*A[elim_ind[i]+npxi*col];
         }
-        
+
         return;
     }
-    
+
     //===================================================================================
     // Solving the Matrix Equation A*x == b for x for the cosmological perturbation
     // equations. The sparesness and band structure are used for the high l-modes.
     //===================================================================================
-    int ODE_Solver_Solve_LA_system_Anisotropies(ODE_solver_matrix &M, 
-                                                vector<double > &bi, 
-                                                vector<double > &x, 
+    int ODE_Solver_Solve_LA_system_Anisotropies(ODE_solver_matrix &M,
+                                                vector<double > &bi,
+                                                vector<double > &x,
                                                 int n_Nu,
                                                 int verbose)
     {
@@ -834,14 +835,14 @@ namespace ODE_solver_LA
         int i_gamma_P=i_gamma+n_gamma;
         int n_elim;
         vector<int> elim_ind(npxi);
-        
+
         //===================================================================================
         // eliminate first column
         //===================================================================================
         int col=0;
-        
+
         double fac_el=M.A[col+npxi*col];
-        
+
 //        A.show_whole_matrix(bi);
 
         elim_ind[0]=col;
@@ -852,9 +853,9 @@ namespace ODE_solver_LA
         elim_ind[5]=i_gamma+0;
         elim_ind[6]=i_gamma+2;
         n_elim=7;
-        
+
         eliminate_n_lower_plus_phot(6, fac_el, i_gamma, col, npxi, n_elim, elim_ind, M.A, bi);
-        
+
         //===================================================================================
         // eliminate second column
         //===================================================================================
@@ -869,14 +870,14 @@ namespace ODE_solver_LA
         elim_ind[5]=i_gamma+0;
         elim_ind[6]=i_gamma+2;
         n_elim=7;
-        
+
         eliminate_n_lower_plus_phot(5, fac_el, i_gamma, col, npxi, n_elim, elim_ind, M.A, bi);
-        
+
         //===================================================================================
         // eliminate third column
         //===================================================================================
         col=2;
-        
+
         fac_el=M.A[col+npxi*col];
         elim_ind[0]=col;
         elim_ind[1]=col+1;
@@ -885,7 +886,7 @@ namespace ODE_solver_LA
         elim_ind[4]=i_gamma+0;
         elim_ind[5]=i_gamma+2;
         n_elim=6;
-        
+
         eliminate_n_lower_plus_phot(4, fac_el, i_gamma, col, npxi, n_elim, elim_ind, M.A, bi);
 
         //===================================================================================
@@ -901,14 +902,14 @@ namespace ODE_solver_LA
         elim_ind[4]=i_gamma+0;
         elim_ind[5]=i_gamma+2;
         n_elim=6;
-        
+
         eliminate_n_lower_plus_phot(3, fac_el, i_gamma, col, npxi, n_elim, elim_ind, M.A, bi);
-        
+
         //===================================================================================
         // eliminate fifth column
         //===================================================================================
         col=4;
-        
+
         fac_el=M.A[col+npxi*col];
         elim_ind[0]=col;
         elim_ind[1]=col+1;
@@ -917,14 +918,14 @@ namespace ODE_solver_LA
         elim_ind[4]=i_gamma+1;
         elim_ind[5]=i_gamma+2;
         n_elim=6;
-        
+
         eliminate_n_lower_plus_phot(2, fac_el, i_gamma, col, npxi, n_elim, elim_ind, M.A, bi);
-        
+
         //===================================================================================
         // eliminate first neutrino column
         //===================================================================================
         col=5;
-        
+
         fac_el=M.A[col+npxi*col];
         elim_ind[0]=col;
         elim_ind[1]=col+1;
@@ -933,9 +934,9 @@ namespace ODE_solver_LA
         elim_ind[4]=i_gamma+1;
         elim_ind[5]=i_gamma+2;
         n_elim=6;
-        
+
         eliminate_n_lower_plus_phot(1, fac_el, i_gamma, col, npxi, n_elim, elim_ind, M.A, bi);
-        
+
         //===================================================================================
         // eliminate remaining neutrino columns
         //===================================================================================
@@ -948,7 +949,7 @@ namespace ODE_solver_LA
             elim_ind[3]=i_gamma+1;
             elim_ind[4]=i_gamma+2;
             n_elim=5;
-            
+
             eliminate_n_lower_plus_phot(1, fac_el, i_gamma, col, npxi, n_elim, elim_ind, M.A, bi);
         }
 
@@ -956,41 +957,41 @@ namespace ODE_solver_LA
         // eliminate last neutrino column
         //===================================================================================
         col=i_gamma-1;
-        
+
         fac_el=M.A[col+npxi*col];
         elim_ind[0]=col;
         elim_ind[1]=i_gamma+0;
         elim_ind[2]=i_gamma+1;
         elim_ind[3]=i_gamma+2;
         n_elim=4;
-        
+
         eliminate_n_lower(2, fac_el, col, npxi, n_elim, elim_ind, M.A, bi);
-        
+
         //===================================================================================
         // eliminate first photon column
         //===================================================================================
         col=i_gamma;
-        
+
         fac_el=M.A[col+npxi*col];
         elim_ind[0]=col;
         elim_ind[1]=col+1;
         elim_ind[2]=col+2;
         n_elim=3;
-        
+
         eliminate_n_lower(1, fac_el, col, npxi, n_elim, elim_ind, M.A, bi);
-        
+
         //===================================================================================
         // eliminate second photon column
         //===================================================================================
         col=i_gamma+1;
-        
+
         fac_el=M.A[col+npxi*col];
         elim_ind[0]=col;
         elim_ind[1]=col+1;
         n_elim=2;
-        
+
         eliminate_n_lower(1, fac_el, col, npxi, n_elim, elim_ind, M.A, bi);
-        
+
         //===================================================================================
         // eliminate remaining photon columns
         //===================================================================================
@@ -1002,36 +1003,36 @@ namespace ODE_solver_LA
             elim_ind[2]=i_gamma_P+0;
             elim_ind[3]=i_gamma_P+2;
             n_elim=4;
-            
+
             eliminate_n_lower_plus_pol(1, fac_el, i_gamma_P, col, npxi, n_elim, elim_ind, M.A, bi);
         }
-    
+
         //===================================================================================
         // eliminate last photon column
         //===================================================================================
         col=i_gamma_P-1;
-        
+
         fac_el=M.A[col+npxi*col];
         elim_ind[0]=col;
         elim_ind[1]=i_gamma_P+0;
         elim_ind[2]=i_gamma_P+2;
         n_elim=3;
-        
+
         eliminate_n_lower_plus_pol(0, fac_el, i_gamma_P, col, npxi, n_elim, elim_ind, M.A, bi);
 
         //===================================================================================
         // eliminate first polarization  column
         //===================================================================================
         col=i_gamma_P;
-        
+
         fac_el=M.A[col+npxi*col];
         elim_ind[0]=col;
         elim_ind[1]=col+1;
         elim_ind[2]=col+2;
         n_elim=3;
-        
+
         eliminate_n_lower(2, fac_el, col, npxi, n_elim, elim_ind, M.A, bi);
-        
+
         //===================================================================================
         // eliminate remaining polarization columns
         //===================================================================================
@@ -1041,11 +1042,11 @@ namespace ODE_solver_LA
             elim_ind[0]=col;
             elim_ind[1]=col+1;
             n_elim=2;
-            
+
             eliminate_n_lower(1, fac_el, col, npxi, n_elim, elim_ind, M.A, bi);
         }
-        
-        
+
+
         fac_el=M.A[col+npxi*col];
         bi[col]/=fac_el;
         M.A[col+npxi*col]/=fac_el;
@@ -1060,31 +1061,31 @@ namespace ODE_solver_LA
         // polarization
         for(col=npxi-2; col>i_gamma_P; col--)
             x[col]=bi[col]-x[col+1]*M.A[col+1+npxi*col];
-        
+
         // polarization monopole
         x[col]=bi[col]-x[col+1]*M.A[col+1+npxi*col]-x[col+2]*M.A[col+2+npxi*col];
-        
+
         // photons (last col)
         col--;
         x[col]=bi[col];
         for(int i=0; i<3; i++) x[col]+=-x[i_gamma_P+i]*M.A[i_gamma_P+i+npxi*col];
-        
+
         // photons (rest)
         for(col--; col>i_gamma; col--)
         {
             x[col]=bi[col]-x[col+1]*M.A[col+1+npxi*col];
-            for(int i=0; i<3; i++) 
+            for(int i=0; i<3; i++)
                 x[col]+=-x[i_gamma_P+i]*M.A[i_gamma_P+i+npxi*col];
         }
-        
+
         // photon monopole
         x[col]=bi[col]-x[col+1]*M.A[col+1+npxi*col]-x[col+2]*M.A[col+2+npxi*col];
-        
+
         // neutrinos
         col--;
         x[col]=bi[col];
         for(int i=0; i<3; i++) x[col]+=-x[i_gamma+i]*M.A[i_gamma+i+npxi*col];
-        
+
         for(col--; col>5; col--)
         {
             x[col]=bi[col]-x[col+1]*M.A[col+1+npxi*col];
@@ -1094,7 +1095,7 @@ namespace ODE_solver_LA
         // neutrino monopole
         x[col]=bi[col]-x[col+1]*M.A[col+1+npxi*col]-x[col+2]*M.A[col+2+npxi*col];
         for(int i=0; i<3; i++) x[col]+=-x[i_gamma+i]*M.A[i_gamma+i+npxi*col];
-        
+
         // baryon velocity
         col--;
         x[col]=bi[col]-x[col+1]*M.A[col+1+npxi*col]-x[col+3]*M.A[col+3+npxi*col];
@@ -1105,13 +1106,13 @@ namespace ODE_solver_LA
         x[col] =bi[col]-x[col+1]*M.A[col+1+npxi*col]-x[col+2]*M.A[col+2+npxi*col];
         x[col]-=x[col+4]*M.A[col+4+npxi*col];
         x[col]+=-x[i_gamma+0]*M.A[i_gamma+0+npxi*col]-x[i_gamma+2]*M.A[i_gamma+2+npxi*col];
-        
+
         // DM velocity
         col--;
         x[col] =bi[col]-x[col+1]*M.A[col+1+npxi*col]-x[col+3]*M.A[col+3+npxi*col];
         x[col]-=x[col+5]*M.A[col+5+npxi*col];
         x[col]+=-x[i_gamma+0]*M.A[i_gamma+0+npxi*col]-x[i_gamma+2]*M.A[i_gamma+2+npxi*col];
-        
+
         // DM density
         col--;
         x[col] =bi[col]-x[col+1]*M.A[col+1+npxi*col]-x[col+2]*M.A[col+2+npxi*col];
@@ -1125,7 +1126,7 @@ namespace ODE_solver_LA
         x[col]-=x[col+5]*M.A[col+5+npxi*col];
         x[col]-=x[col+7]*M.A[col+7+npxi*col];
         x[col]+=-x[i_gamma+0]*M.A[i_gamma+0+npxi*col]-x[i_gamma+2]*M.A[i_gamma+2+npxi*col];
-       
+
         elim_ind.clear();
 
 //        for(int k=0; k<(int)xc.size(); k++) cout << k << " " << x[k] << " " << xc[k] << endl;

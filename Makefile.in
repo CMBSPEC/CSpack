@@ -2,7 +2,7 @@
 # choose c++ compiler
 #===============================================================================
 CC= g++
-#CC= g++-mp-6
+CC=/opt/homebrew/bin/g++-15
 
 #===============================================================================
 # compiler flags
@@ -18,26 +18,41 @@ LXXFLAGS =
 #LXXFLAGS = -pg
 
 #===============================================================================
+# default lib path
+#===============================================================================
+#DEF_INC_PATH = /usr/local/include/
+#DEF_LIB_PATH = /usr/local/lib/
+#DEF_INC_PATH = /opt/local/include/
+#DEF_LIB_PATH = /opt/local/lib/
+DEF_INC_PATH = /opt/homebrew/include/
+DEF_LIB_PATH = /opt/homebrew/lib/
+
+#===============================================================================
 # GSL lib
 #===============================================================================
-GSL          = gsl
-GSL_INC_PATH = /usr/local/include/
-GSL_LIB_PATH = /usr/local/lib/
-LIBSGSL = -L$(GSL_LIB_PATH) -l$(GSL) -lgslcblas
+GSL_INC_PATH = $(DEF_INC_PATH)
+GSL_LIB_PATH = $(DEF_LIB_PATH)
+LIBSGSL = -L$(GSL_LIB_PATH) -lgsl -lgslcblas
+
+#===============================================================================
+# BOOST lib
+#===============================================================================
+BOOST_INC_PATH = $(DEF_INC_PATH)
+BOOST_LIB_PATH = $(DEF_LIB_PATH)
+LIBSBOOST = -L$(BOOST_LIB_PATH)
 
 #===============================================================================
 # (partial) openmp support
 #===============================================================================
 # If openmp support should be used uncomment next line and set the subsequent
-# definitions accordingly. [JC not working yet...]
+# definitions accordingly.
 #===============================================================================
-#USE_OPENMP   = -D OPENMP_ACTIVATED
+USE_OPENMP   = -D OPENMP_ACTIVATED
 
 ifeq ($(USE_OPENMP),-D OPENMP_ACTIVATED)
-CXXFLAGS    += -fopenmp
+CXXFLAGS    += -fopenmp -pthread
 LIBOPENMI    = -lgomp
 endif
-
 
 #===============================================================================
 #===============================================================================
@@ -58,8 +73,7 @@ CXXFLAGSLOC = $(CXXFLAGS) $(USE_OPENMP)
 #===============================================================================
 # Required external libs
 #===============================================================================
-LIBS    = -L/usr/local/lib/ -L/opt/local/lib/ \
-           $(LIBSRF) $(LIBSGSL) $(LIBOPENMI) -lm
+LIBS    = $(LIBSGSL) $(LIBSBOOST) $(LIBOPENMI) $(LIBSRF) -lm
 
 #===============================================================================
 # object files
@@ -68,7 +82,9 @@ OBJSDEV = $(TOOLS_DIR)/Simple_routines/routines.o \
        $(TOOLS_DIR)/Simple_routines/parser.o \
        $(TOOLS_DIR)/ODE_PDE_Solver/ODE_solver_LA.o \
 	   $(TOOLS_DIR)/Compton_Kernel/Compton_Kernel.o \
-	   $(TOOLS_DIR)/Integration/Patterson.o
+       $(TOOLS_DIR)/Integration/Patterson.o \
+       $(TOOLS_DIR)/Integration/Integration_routines.GSL.o \
+       $(TOOLS_DIR)/Integration/Chebyshev_Int.o
 
 OBJSCS = ./CSpack/CSpack_functions.o \
         ./CSpack/CSpack_kernels.o \

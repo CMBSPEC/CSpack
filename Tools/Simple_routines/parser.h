@@ -32,6 +32,15 @@ int parser_read(const struct file_content &pfc, string var_id, int &val, bool &f
 int parser_read(const struct file_content &pfc, string var_id, double &val, bool &found, bool show_entry=0);
 int parser_read(const struct file_content &pfc, string var_id, string &val, bool &found, bool show_entry=0);
 
+int parser_read_fullstring(const struct file_content &pfc, string var_id, string &val,
+                           bool &found, bool show_entry=0);
+
+int parser_read(const struct file_content &pfc, string var_id, vector<double> &dvals,
+                bool &found, bool show_entry=0);
+
+int parser_read(const struct file_content &pfc, string var_id, vector<string> &svals,
+                bool &found, bool show_entry=0);
+
 int parser_dual_read(const struct file_content &pfc, string var_id_1, string var_id_2,
                      int &val, bool &found_1, bool &found_2, bool show_entry);
 int parser_dual_read(const struct file_content &pfc, string var_id_1, string var_id_2,
