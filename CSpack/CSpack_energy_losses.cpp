@@ -41,13 +41,13 @@ struct Integration_2Ddata_losses
 {
     double omega0, p0;      // omega0 and p0
     double thg;             // temperature of black body in me c^2
-    double (*kernel_ptr)(double, double, double);
+    kernel_ptr K;
     bool use_stim;
     bool removal, addition;
 
     Integration_2Ddata_losses()
     {
-        kernel_ptr=NULL;
+        K=NULL;
         use_stim=0;
         removal=addition=1;
     }
@@ -59,7 +59,7 @@ double integrand_losses_all_o(double lgomega, void *q)
     Integration_2Ddata_losses *d=(Integration_2Ddata_losses *)q;
 
     double omega=exp(lgomega);
-    double K=d->kernel_ptr(d->omega0, d->p0, omega);
+    double K=d->K(d->omega0, d->p0, omega);
     double Dnu_nuk=omega/d->omega0-1.0;
     double stim=(d->use_stim ? 1.0/one_minus_exp_mx(omega/d->thg) : 1.0);
 
@@ -87,7 +87,7 @@ double photon_gains(double thg, double p0, string type, bool stim)
     d.thg=thg;
     d.p0=p0;
     d.use_stim=stim;
-    d.kernel_ptr=Get_kernel_pointer(type, "photon_gains");
+    d.K=Get_kernel_pointer(type, "photon_gains");
 
     double a=1.0e-5*thg, b=50.0*thg;
     double epsrel=1.0e-8, epsabs=1.0e-50;
@@ -116,8 +116,8 @@ double integrand_Ng_all_o(double lgomega, void *q)
     Integration_2Ddata_losses *d=(Integration_2Ddata_losses *)q;
 
     double omega=exp(lgomega);
-    double Km=(d->removal  ? d->kernel_ptr(d->omega0, d->p0, omega) : 0.0);
-    double Kp=(d->addition ? d->kernel_ptr(omega, d->p0, d->omega0) : 0.0);
+    double Km=(d->removal  ? d->K(d->omega0, d->p0, omega) : 0.0);
+    double Kp=(d->addition ? d->K(omega, d->p0, d->omega0) : 0.0);
 
     double x0=d->omega0/d->thg, x=omega/d->thg;
     double stimm=(d->use_stim ? 1.0/one_minus_exp_mx(x ) : 1.0);
@@ -146,7 +146,7 @@ double dDng_dtau(double x, double thg, double p0, string type, bool stim)
     d.thg=thg;
     d.p0=p0;
     d.use_stim=stim;
-    d.kernel_ptr=Get_kernel_pointer(type, "Ng_removal");
+    d.K=Get_kernel_pointer(type, "Ng_removal");
     d.removal=1;
     d.addition=1;
 
@@ -162,7 +162,7 @@ double dng_dtau_removal(double x, double thg, double p0, string type, bool stim)
     d.thg=thg;
     d.p0=p0;
     d.use_stim=stim;
-    d.kernel_ptr=Get_kernel_pointer(type, "Ng_removal");
+    d.K=Get_kernel_pointer(type, "Ng_removal");
     d.removal=1;
     d.addition=0;
 
@@ -178,7 +178,7 @@ double DNg_dtau(double thg, double p0, string type, bool stim)
     d.thg=thg;
     d.p0=p0;
     d.use_stim=stim;
-    d.kernel_ptr=Get_kernel_pointer(type, "Ng_removal");
+    d.K=Get_kernel_pointer(type, "Ng_removal");
     d.removal=1;
     d.addition=1;
 
@@ -198,7 +198,7 @@ double Ng_dtau_removal(double thg, double p0, string type, bool stim)
     d.thg=thg;
     d.p0=p0;
     d.use_stim=stim;
-    d.kernel_ptr=Get_kernel_pointer(type, "Ng_removal");
+    d.K=Get_kernel_pointer(type, "Ng_removal");
     d.removal=1;
     d.addition=0;
 

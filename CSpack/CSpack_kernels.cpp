@@ -120,8 +120,8 @@ kernel_ptr Get_kernel_pointer(string type, string calling_func)
 
 double kernel_all(double omega0, double p0, double omega, string type)
 {
-    double (*kernel_ptr)(double omega0, double p0, double omega)=Get_kernel_pointer(type, "kernel_all");
-    return kernel_ptr(omega0, p0, omega);
+    kernel_ptr K=Get_kernel_pointer(type, "kernel_all");
+    return K(omega0, p0, omega);
 }
 
 //==================================================================================================
@@ -186,12 +186,12 @@ struct Integration_data
 {
     double omega0, omega;
     double theta;
-    double (*kernel_ptr)(double, double, double);
+    kernel_ptr K;
     
     Integration_data()
     {
         omega0=omega=theta=0.01;
-        kernel_ptr=NULL;
+        K=NULL;
     }
 };
 
@@ -199,7 +199,7 @@ double integrand_p_all(double lp, void *q)
 {
     Integration_data *d=(Integration_data *)q;
     double p=exp(lp);
-    double fact= mb_dist_func(p, d->theta) * pow(p, 3) * d->kernel_ptr(d->omega0, p, d->omega);
+    double fact= mb_dist_func(p, d->theta) * pow(p, 3) * d->K(d->omega0, p, d->omega);
     return fact;
 }
  
@@ -214,7 +214,7 @@ double thermal_kernel_all(double omega0, double omega, double theta, string type
 
     Integration_data d;
     d.omega=omega; d.omega0=omega0; d.theta=theta;
-    d.kernel_ptr=Get_kernel_pointer(type, "thermal_kernel_all");
+    d.K=Get_kernel_pointer(type, "thermal_kernel_all");
 
     double a, b;
     if (type=="doppler") a = lower_limit_dop(omega0, omega);
@@ -274,6 +274,173 @@ double thermal_kernel_SS_C(double omega0, double omega, double theta)
     return thermal_kernel_all(omega0, omega, theta, "SS_C");
 }
 
+}
+
+//==================================================================================================
+// neutrino scattering KERNELS
+//==================================================================================================
+namespace CSpack_kernels_nu {
+
+double gL =0.731;
+double gR =gL-0.5;
+double alpha_norm=gL*gL+gR*gR-gL*gR;
+double alpha_LR=gL*gR/alpha_norm;
+double beta_LR=gR*gR/alpha_norm;
+
+//==================================================================================================
+double I20_omega14(double pt, double lambda)
+{
+    return -pow(lambda, 5)/80.0+pow(lambda, 3)*pt*pt/24.0-lambda*pt*pt*pt*pt/16.0;
+}
+
+double I01_omega14(double pt, double lambda, double kappa, double Sigma)
+{
+    return pow(lambda, 3)/48.0-lambda*(pt*pt-kappa)/8.0-Sigma/16.0;
+}
+
+double I11_omega14(double pt, double lambda, double kappa, double Sigma)
+{
+    return -pow(lambda, 5)/160.0+pow(lambda, 3)*(3.0*pt*pt-2.0*kappa)/96.0
+           -lambda*pt*pt*(pt*pt-kappa)/16.0-(pt*pt+lambda*lambda)*Sigma/32.0;
+}
+
+double I02_omega14(double pt, double lambda, double kappa, double Sigma, double omega1, double omega3)
+{
+    double Delta2=pow(omega1-omega3, 2), o1o3=omega1*omega3, pt2_kap=pt*pt-kappa;
+    double special_term=(lambda==0.0 ? 0.0 : (Sigma*Sigma-4.0*pt*pt*pt*pt*Delta2)/lambda );
+    
+    return -3.0*pow(lambda, 5)/640.0+pow(lambda, 3)*(3.0*pt2_kap+Delta2)/96.0
+           -lambda*(9.0*lambda*Sigma+24.0*(pt2_kap-o1o3)*o1o3 + 2.0*(5.0*pt*pt+3.0)*Delta2 )/64.0
+           - 3.0*Sigma*pt2_kap/32.0 + special_term/128.0;
+}
+
+//==================================================================================================
+double I_alpha(double pt, double lambda, double kappa, double Sigma)
+{
+    return I20_omega14(pt, lambda)-I01_omega14(pt, lambda, kappa, Sigma);
+}
+
+double I_beta(double pt, double lambda, double kappa, double Sigma, double omega1, double omega3)
+{
+    return I02_omega14(pt, lambda, kappa, Sigma, omega1, omega3)-2.0*I11_omega14(pt, lambda, kappa, Sigma);
+}
+
+//==================================================================================================
+vector<double> Get_lambda12_lu(double omega1, double p2, double omega3, string zone)
+{
+    double rho=omega3/omega1;
+    double p4=pfunc_sc(omega1, p2, omega3);
+    
+    if(zone=="I") return {1.0/(gamma_f(p2)+p2), rho*(gamma_f(p4)+p4)};
+    
+    else if(zone=="II")
+    {
+        double p2p=gamma_f(p2)+p2;
+        if(p2<omega1) return {1.0/p2p, p2p};
+        else if(p2>omega1) return {rho/(gamma_f(p4)+p4), p2p};
+    }
+    
+    else if(zone=="III") return {rho/(gamma_f(p4)+p4), rho*(gamma_f(p4)+p4)};
+
+    return {0, 0};
+}
+
+//==================================================================================================
+vector<double> Get_lambda_lu(double omega1, double p2, double omega3, string zone)
+{
+    double p4=pfunc_sc(omega1, p2, omega3);
+    
+    if(zone=="I") return {p2+omega1, fabs(p4-omega3)};
+    
+    else if(zone=="II")
+    {
+        if(p2<omega1) return {p2+omega1, fabs(p2-omega1)};
+        else if(p2>omega1) return {p4+omega3, fabs(p2-omega1)};
+    }
+    
+    else if(zone=="III") return {p4+omega3, fabs(p4-omega3)};
+
+    return {0, 0};
+}
+
+//==================================================================================================
+vector<double> Get_Sigma_lu(double omega1, double p2, double omega3, string zone)
+{
+    // Sigma = (p2+omega1)*(p2-omega1)*(p4+omega3)*(p4-omega3)/lambda
+    double p4=pfunc_sc(omega1, p2, omega3);
+    double s=(p4>omega3 ? 1.0 : -1.0);
+    
+    // p4>omega3 ?
+    if(zone=="I") return {(p2-omega1)*(p4+omega3)*(p4-omega3), (p2+omega1)*(p2-omega1)*(p4+omega3)*s};
+    
+    else if(zone=="II")
+    {
+        if(p2<omega1) return {(p2-omega1)*(p4+omega3)*(p4-omega3), -(p2+omega1)*(p4+omega3)*(p4-omega3)};
+        else if(p2>omega1) return {(p2+omega1)*(p2-omega1)*(p4-omega3), (p2+omega1)*(p4+omega3)*(p4-omega3)};
+    }
+    
+    else if(zone=="III") return {(p2+omega1)*(p2-omega1)*(p4-omega3), (p2+omega1)*(p2-omega1)*(p4+omega3)*s};
+
+    return {0, 0};
+}
+
+//==================================================================================================
+double kernel_exact(double omega1, double p2, double omega3)
+{
+    double g2=gamma_f(p2);
+    double gt=g2+omega1, pt=pfunc(gt);
+    double kappa=gt*(omega1+omega3)-2.0*omega1*omega3;
+    
+    string zone=Get_zone(omega1, p2, omega3);
+    vector<double> lambda=Get_lambda_lu(omega1, p2, omega3, zone);
+    vector<double> Sigma =Get_Sigma_lu (omega1, p2, omega3, zone);
+    
+    // comment: all functions scaled by omega1^4
+    double I20 =I20_omega14(pt, lambda[1])
+               -I20_omega14(pt, lambda[0]);
+    
+    double I_a =I_alpha(pt, lambda[1], kappa, Sigma[1])
+               -I_alpha(pt, lambda[0], kappa, Sigma[0]);
+    
+    double I_b =I_beta (pt, lambda[1], kappa, Sigma[1], omega1, omega3)
+               -I_beta (pt, lambda[0], kappa, Sigma[0], omega1, omega3);
+
+    return (I20+alpha_LR*I_a+beta_LR*I_b)/pow(omega1, 4)/g2/p2;
+}
+
+}
+
+//==================================================================================================
+void output_kernel(string fname, int np,
+                   double omega0, vector<double> p0,
+                   kernel_ptr K)
+{
+    double om_l=omegamin(omega0, p0.back()), om_u=omegamax(omega0, p0.back());
+    vector<double> oarr(np);
+    init_xarr(om_l, om_u, &oarr[0], np, 1, 0);
+
+    ofstream ofile;
+    ofile.open(fname.c_str());
+    ofile.precision(10);
+
+    for(int k=0; k<np; k++)
+    {
+        ofile << oarr[k] << " ";
+        for(int ip=0; ip<(int)p0.size(); ip++)
+            ofile << K(omega0, p0[ip], oarr[k]) << " ";
+        
+        ofile << endl;
+    }
+
+    ofile.close();
+}
+
+//==================================================================================================
+void output_kernel(string fname, int np,
+                   double omega0, double p0,
+                   kernel_ptr K)
+{
+    output_kernel(fname, np, omega0, vector<double>{p0}, K);
 }
 
 //==================================================================================================

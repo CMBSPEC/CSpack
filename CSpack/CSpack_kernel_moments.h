@@ -8,6 +8,8 @@
 
 #include <string>
 
+#include "CSpack_kernels.h"
+
 using namespace std;
 
 namespace CSpack_kernel_moments {
@@ -45,6 +47,22 @@ void compute_all_FP_coefficients(double omega0, double theta, string type,
 double G_moment_2D_Int_therm_all_II(double omega0, double theta, string type);
 
 }
+
+namespace CSpack_kernel_moments_numerical {
+
+double Sigma_func(double omega1, double p2, int k, kernel_ptr K);
+
+}
+
+void output_kernel_moments(string fname, int np,
+                           vector<double> omega0,
+                           int k,
+                           kernel_ptr K);
+
+void output_kernel_moments(string fname, int np,
+                           double omega0,
+                           int k,
+                           kernel_ptr K);
 
 #endif
 

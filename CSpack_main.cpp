@@ -31,6 +31,16 @@ using namespace CSpack_equilibrium_solutions;
 //====================================================================================================================
 int main(int narg, char *args[])
 {
+    create_directory_if_it_does_not_exist("./outputs", 1);
+    
+    double omega0=0.1;
+    vector<double> p0a={omega0/10.0, omega0/2.0, omega0, omega0*2.0, omega0*5.0};
+    
+    output_kernel("./outputs/kernel_ph.dat", 500, omega0, p0a, CSpack_kernels::kernel_exact);
+    output_kernel("./outputs/kernel_nu.dat", 500, omega0, p0a, CSpack_kernels_nu::kernel_exact);
+
+    exit(1);
+
     Kernel_representation Kth(1.0e-4, 0.01, 0.01, 100, 0.1, 1.0e-10, 1.0e-6, 2);
 
     cout << Kth.Kernel(0.01*0.9999) << " " << Kth.Kernel(0.01*0.99) << " "
@@ -48,8 +58,6 @@ int main(int narg, char *args[])
 //    cout << compute_exact_moments_analytical(omega0, p0, 0) << endl;
 //    cout << compute_exact_moments_analytical(omega0, p0, 1) << endl;
 //    cout << compute_exact_moments_analytical(omega0, p0, 2) << endl;
-
-    create_directory_if_it_does_not_exist("./outputs", 1);
 
 //    //================================================================================================================
 //    int np=500;

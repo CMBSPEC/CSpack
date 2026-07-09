@@ -10,13 +10,13 @@
 
 using namespace std;
 
+typedef double (*kernel_ptr)(double, double, double);
+
 namespace CSpack_kernels {
 
 //==================================================================================================
 // KERNELS
 //==================================================================================================
-typedef double (*kernel_ptr)(double, double, double);
-
 double kernel_exact(double omega0, double p0, double omega);
 double kernel_recoil(double omega0, double p0, double omega);
 double kernel_doppler(double omega0, double p0, double omega);
@@ -49,6 +49,23 @@ double thermal_kernel_SS_C(double omega0, double omega, double theta);
 double thermal_kernel_all(double omega0, double omega, double theta, string type);
 
 }
+
+namespace CSpack_kernels_nu {
+
+//==================================================================================================
+// neutrino scattering KERNELS
+//==================================================================================================
+double kernel_exact(double omega0, double p0, double omega);
+
+};
+
+void output_kernel(string fname, int np,
+                   double omega0, vector<double> p0,
+                   kernel_ptr K);
+
+void output_kernel(string fname, int np,
+                   double omega0, double p0,
+                   kernel_ptr K);
 
 #endif
 //==================================================================================================

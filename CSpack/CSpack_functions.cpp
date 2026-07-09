@@ -58,6 +58,33 @@ double omegamax(double omega0, double p0)
 }
 
 //==================================================================================================
+string Get_zone(double omega0, double p0, double omega)
+{
+    double omega_min=omegamin(omega0, p0);
+    double omega_cr=omegacrit(omega0, p0);
+    double omega_max=omegamax(omega0, p0);
+
+    if (omega0 > p0)
+    {
+        if(omega_min <= omega && omega < omega_cr) return "I";
+        
+        else if(omega_cr <= omega && omega <= omega0) return "II";
+        
+        else if(omega0 < omega && omega <= omega_max) return "III";
+    }
+    else
+    {
+        if(omega_min <= omega && omega  < omega0) return "I";
+
+        else if(omega0 <= omega && omega <=omega_cr) return "II";
+
+        else if(omega_cr < omega && omega <= omega_max) return "III";
+    }
+
+    return "None";
+}
+
+//==================================================================================================
 // Functions for the Kernel
 //==================================================================================================
 double lambda_p(double p0, double omega0)

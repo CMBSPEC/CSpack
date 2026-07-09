@@ -8,6 +8,7 @@ CSpack.xcworkspace/xcuserdata/jchluba.xcuserdatad/xcdebugger/Breakpoints_v2.xcbk
 *.o
 *.a
 CSpack_main
+outputs*/
 outputs/electron_losses.agr
 outputs/electron_losses.dat
 outputs/electron_losses_corrected.agr

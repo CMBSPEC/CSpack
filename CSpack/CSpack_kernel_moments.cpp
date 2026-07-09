@@ -413,12 +413,12 @@ struct Integration_2Ddata_moments
     double omega0, p0;      // omega0 and p0
     double theta;           // temperature
     int k;                  // order of moment
-    double (*kernel_ptr)(double, double, double);
+    kernel_ptr K;
     bool use_stim;
 
     Integration_2Ddata_moments()
     {
-        kernel_ptr=NULL;
+        K=NULL;
         k=0;
         use_stim=0;
     }
@@ -430,7 +430,7 @@ double integrand_moments_all_o(double lgomega, void *q)
     Integration_2Ddata_moments *d=(Integration_2Ddata_moments *)q;
     
     double omega=exp(lgomega);
-    double K=d->kernel_ptr(d->omega0, d->p0, omega);
+    double K=d->K(d->omega0, d->p0, omega);
     double Dnu_nuk=pow(omega/d->omega0-1.0, d->k);
     double stim=(d->use_stim ? one_minus_exp_mx(d->omega0/d->theta)/one_minus_exp_mx(omega/d->theta) : 1.0);
 
@@ -459,7 +459,7 @@ double moment_2D_Int_therm_all_II(double omega0, int k, double theta, string typ
     d.theta=theta;
     d.k=k;
     d.use_stim=stim;
-    d.kernel_ptr=Get_kernel_pointer(type, "moment_2D_Int_therm_all_II");
+    d.K=Get_kernel_pointer(type, "moment_2D_Int_therm_all_II");
 
     double a=sqrt(2.0*theta)*1.0e-8;
     double f=30.0, b=sqrt((2.0+f*theta)*f*theta);
@@ -480,7 +480,7 @@ double G_integrand_moments_all_o(double lgomega, void *q)
     Integration_2Ddata_moments *d=(Integration_2Ddata_moments *)q;
     
     double omega=exp(lgomega);
-    double K=d->kernel_ptr(d->omega0, d->p0, omega);
+    double K=d->K(d->omega0, d->p0, omega);
     double Dnu_nuk=(2.0*omega/d->omega0-3.0)*(omega/d->omega0-1.0);
     
     return omega*K*Dnu_nuk;
@@ -506,7 +506,7 @@ double G_moment_2D_Int_therm_all_II(double omega0, double theta, string type)
     Integration_2Ddata_moments d;
     d.omega0=omega0;
     d.theta=theta;
-    d.kernel_ptr=Get_kernel_pointer(type, "G_moment_2D_Int_therm_all_II");
+    d.K=Get_kernel_pointer(type, "G_moment_2D_Int_therm_all_II");
 
     double a=sqrt(2.0*theta)*1.0e-8;
     double f=30.0, b=sqrt((2.0+f*theta)*f*theta);
@@ -553,6 +553,79 @@ void compute_all_FP_coefficients(double omega0, double theta, string type,
     return;
 }
 
+}
+
+namespace CSpack_kernel_moments_numerical {
+
+struct Integration_1Ddata_moments
+{
+    double omega1{1}, p2{1};   // omega1 and p2
+    int k{0};                  // order of moment
+    kernel_ptr K{NULL};
+    //bool use_stim{0};
+};
+
+double Integrand_moments_omega3(double lgomega3, void *q)
+{
+    Integration_1Ddata_moments& d=*(Integration_1Ddata_moments *)q;
+    
+    double omega3=exp(lgomega3);
+    double K=d.K(d.omega1, d.p2, omega3);
+    double Dnu_nuk=pow(omega3/d.omega1-1.0, d.k);
+    
+    return omega3*K*Dnu_nuk;
+}
+
+double Sigma_func(double omega1, double p2, int k, kernel_ptr K)
+{
+    Integration_1Ddata_moments D={omega1, p2, k, K};
+    
+    double a=max(1.0e-16, omegamin(D.omega1, D.p2));
+    double b=omegamax(D.omega1, D.p2);
+
+    double epsrel=1.0e-8, epsabs=1.0e-50;
+    double r=0.0;
+    
+    r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, Integrand_moments_omega3, &D);
+    
+    return r;
+}
+
+}
+
+//==================================================================================================
+void output_kernel_moments(string fname, int np,
+                           vector<double> omega0,
+                           int k,
+                           kernel_ptr K)
+{
+    double p_l=1.0e-2, p_u=1.0e+3;
+    vector<double> parr(np);
+    init_xarr(p_l, p_u, &parr[0], np, 1, 0);
+
+    ofstream ofile;
+    ofile.open(fname.c_str());
+    ofile.precision(10);
+
+    for(int k=0; k<np; k++)
+    {
+        ofile << parr[k] << " ";
+        for(int io=0; io<(int)omega0.size(); io++)
+            ofile << CSpack_kernel_moments_numerical::Sigma_func(omega0[io], parr[k]*omega0[io], k, K) << " ";
+        
+        ofile << endl;
+    }
+
+    ofile.close();
+}
+
+//==================================================================================================
+void output_kernel_moments(string fname, int np,
+                           double omega0,
+                           int k,
+                           kernel_ptr K)
+{
+    output_kernel_moments(fname, np, vector<double>{omega0}, k, K);
 }
 
 //==================================================================================================

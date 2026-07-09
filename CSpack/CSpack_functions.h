@@ -24,6 +24,8 @@ double omegamin(double omega0, double p0);
 double omegatot(double omega0, double p0);
 double omegamax(double omega0, double p0);
 
+string Get_zone(double omega0, double p0, double omega);
+
 //==================================================================================================
 // Kernel functions
 //==================================================================================================
