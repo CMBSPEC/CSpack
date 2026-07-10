@@ -59,6 +59,20 @@ double kernel_exact(double omega0, double p0, double omega);
 
 };
 
+//==================================================================================================
+// thermally-averaged kernels over Fermi-Dirac distribution
+//==================================================================================================
+namespace CSpack_kernels_FD {
+
+double thermal_kernel_FD(double omega0, double omega, double theta, double mue,
+                         kernel_ptr K, int add_FB=0);
+
+void output_thermal_kernel(string fname, int np,
+                           vector<double> omega0,
+                           double theta, double mue,
+                           kernel_ptr K, int add_FB=0);
+};
+
 void output_kernel(string fname, int np,
                    double omega0, vector<double> p0,
                    kernel_ptr K);

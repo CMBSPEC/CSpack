@@ -560,34 +560,46 @@ namespace CSpack_kernel_moments_numerical {
 struct Integration_1Ddata_moments
 {
     double omega1{1}, p2{1};   // omega1 and p2
-    int k{0};                  // order of moment
+    int m{0};                  // order of moment
+    double omin{1};
     kernel_ptr K{NULL};
     //bool use_stim{0};
 };
 
-double Integrand_moments_omega3(double lgomega3, void *q)
+double Integrand_moments_omega3(double lomega3, void *q)
 {
     Integration_1Ddata_moments& d=*(Integration_1Ddata_moments *)q;
-    
-    double omega3=exp(lgomega3);
+
+    double omega3=exp(lomega3);
     double K=d.K(d.omega1, d.p2, omega3);
-    double Dnu_nuk=pow(omega3/d.omega1-1.0, d.k);
+    double Dnu_nuk=pow(omega3/d.omega1-1.0, d.m);
     
     return omega3*K*Dnu_nuk;
 }
 
-double Sigma_func(double omega1, double p2, int k, kernel_ptr K)
+double Sigma_func(double omega1, double p2, int m, kernel_ptr K)
 {
-    Integration_1Ddata_moments D={omega1, p2, k, K};
-    
+    Integration_1Ddata_moments D={omega1, p2, m, 0, K};
+        
     double a=max(1.0e-16, omegamin(D.omega1, D.p2));
-    double b=omegamax(D.omega1, D.p2);
+    double b=max(1.0e-16, omegamax(D.omega1, D.p2));
+    double c=max(1.0e-16, omegacrit(D.omega1, D.p2));
 
     double epsrel=1.0e-8, epsabs=1.0e-50;
     double r=0.0;
-    
-    r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, Integrand_moments_omega3, &D);
-    
+
+    double la=log(a), lb=log(min(c, omega1));
+    r+=Integrate_using_Patterson_adaptive(la, lb, epsrel, epsabs, Integrand_moments_omega3, &D);
+
+    la=lb; lb=log(omega1);
+    r+=Integrate_using_Patterson_adaptive(la, lb, epsrel, epsabs, Integrand_moments_omega3, &D);
+
+    la=lb; lb=log(max(omega1, min(c, b)));
+    r+=Integrate_using_Patterson_adaptive(la, lb, epsrel, epsabs, Integrand_moments_omega3, &D);
+
+    la=lb; lb=log(b);
+    r+=Integrate_using_Patterson_adaptive(la, lb, epsrel, epsabs, Integrand_moments_omega3, &D);
+
     return r;
 }
 
@@ -596,8 +608,7 @@ double Sigma_func(double omega1, double p2, int k, kernel_ptr K)
 //==================================================================================================
 void output_kernel_moments(string fname, int np,
                            vector<double> omega0,
-                           int k,
-                           kernel_ptr K)
+                           int m, kernel_ptr K)
 {
     double p_l=1.0e-2, p_u=1.0e+3;
     vector<double> parr(np);
@@ -607,11 +618,21 @@ void output_kernel_moments(string fname, int np,
     ofile.open(fname.c_str());
     ofile.precision(10);
 
+    ofile << "# omega1 = ";
+    for(int io=0; io<(int)omega0.size(); io++) ofile << omega0[io] << " ";
+    ofile << endl;
+        
     for(int k=0; k<np; k++)
     {
         ofile << parr[k] << " ";
+        
         for(int io=0; io<(int)omega0.size(); io++)
-            ofile << CSpack_kernel_moments_numerical::Sigma_func(omega0[io], parr[k]*omega0[io], k, K) << " ";
+        {
+            double norm=1.0;
+            if(k>0) norm=CSpack_kernel_moments_numerical::Sigma_func(omega0[io], parr[k]*omega0[io], 0, K);
+            
+            ofile << CSpack_kernel_moments_numerical::Sigma_func(omega0[io], parr[k]*omega0[io], m, K)/norm << " ";
+        }
         
         ofile << endl;
     }
@@ -622,10 +643,9 @@ void output_kernel_moments(string fname, int np,
 //==================================================================================================
 void output_kernel_moments(string fname, int np,
                            double omega0,
-                           int k,
-                           kernel_ptr K)
+                           int m, kernel_ptr K)
 {
-    output_kernel_moments(fname, np, vector<double>{omega0}, k, K);
+    output_kernel_moments(fname, np, vector<double>{omega0}, m, K);
 }
 
 //==================================================================================================

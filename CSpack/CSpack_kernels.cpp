@@ -301,7 +301,7 @@ double I01_omega14(double pt, double lambda, double kappa, double Sigma)
 double I11_omega14(double pt, double lambda, double kappa, double Sigma)
 {
     return -pow(lambda, 5)/160.0+pow(lambda, 3)*(3.0*pt*pt-2.0*kappa)/96.0
-           -lambda*pt*pt*(pt*pt-kappa)/16.0-(pt*pt+lambda*lambda)*Sigma/32.0;
+    -lambda*pt*pt*(pt*pt-kappa)/16.0-(pt*pt+lambda*lambda)*Sigma/32.0;
 }
 
 double I02_omega14(double pt, double lambda, double kappa, double Sigma, double omega1, double omega3)
@@ -310,8 +310,8 @@ double I02_omega14(double pt, double lambda, double kappa, double Sigma, double 
     double special_term=(lambda==0.0 ? 0.0 : (Sigma*Sigma-4.0*pt*pt*pt*pt*Delta2)/lambda );
     
     return -3.0*pow(lambda, 5)/640.0+pow(lambda, 3)*(3.0*pt2_kap+Delta2)/96.0
-           -lambda*(9.0*lambda*Sigma+24.0*(pt2_kap-o1o3)*o1o3 + 2.0*(5.0*pt*pt+3.0)*Delta2 )/64.0
-           - 3.0*Sigma*pt2_kap/32.0 + special_term/128.0;
+    -lambda*(9.0*lambda*Sigma+24.0*(pt2_kap-o1o3)*o1o3 + 2.0*(5.0*pt*pt+3.0)*Delta2 )/64.0
+    - 3.0*Sigma*pt2_kap/32.0 + special_term/128.0;
 }
 
 //==================================================================================================
@@ -341,7 +341,7 @@ vector<double> Get_lambda12_lu(double omega1, double p2, double omega3, string z
     }
     
     else if(zone=="III") return {rho/(gamma_f(p4)+p4), rho*(gamma_f(p4)+p4)};
-
+    
     return {0, 0};
 }
 
@@ -359,7 +359,7 @@ vector<double> Get_lambda_lu(double omega1, double p2, double omega3, string zon
     }
     
     else if(zone=="III") return {p4+omega3, fabs(p4-omega3)};
-
+    
     return {0, 0};
 }
 
@@ -380,7 +380,7 @@ vector<double> Get_Sigma_lu(double omega1, double p2, double omega3, string zone
     }
     
     else if(zone=="III") return {(p2+omega1)*(p2-omega1)*(p4-omega3), (p2+omega1)*(p2-omega1)*(p4+omega3)*s};
-
+    
     return {0, 0};
 }
 
@@ -397,15 +397,146 @@ double kernel_exact(double omega1, double p2, double omega3)
     
     // comment: all functions scaled by omega1^4
     double I20 =I20_omega14(pt, lambda[1])
-               -I20_omega14(pt, lambda[0]);
+    -I20_omega14(pt, lambda[0]);
     
     double I_a =I_alpha(pt, lambda[1], kappa, Sigma[1])
-               -I_alpha(pt, lambda[0], kappa, Sigma[0]);
+    -I_alpha(pt, lambda[0], kappa, Sigma[0]);
     
     double I_b =I_beta (pt, lambda[1], kappa, Sigma[1], omega1, omega3)
-               -I_beta (pt, lambda[0], kappa, Sigma[0], omega1, omega3);
-
+    -I_beta (pt, lambda[0], kappa, Sigma[0], omega1, omega3);
+    
     return (I20+alpha_LR*I_a+beta_LR*I_b)/pow(omega1, 4)/g2/p2;
+}
+}
+
+//==================================================================================================
+// thermally-averaged kernels over Fermi-Dirac distribution
+//==================================================================================================
+namespace CSpack_kernels_FD {
+
+struct Integration_data
+{
+    double omega0, omega;
+    double theta, mue, norm;
+    kernel_ptr K;
+    int add_FB{0};
+};
+
+//==================================================================================================
+double f_FD(double p, double theta, double mue)
+{
+    double gamma=sqrt(1.0+p*p);
+    double Dg=p*p/(1.0+gamma); // == gamma-1
+    // [Comment: since we normalize to int p^2 f dp the possibly very
+    //  small factor exp(-(1.0-mue)/theta) we analytically cancelled]
+    return exp(-Dg/theta)/(1.0+exp( (mue-1.0-Dg)/theta ) );
+}
+
+double f_FD_blocking(double p, double theta, double mue)
+{
+    double gamma=sqrt(1.0+p*p);
+    double em=exp(-(gamma-mue)/theta);
+    return 1.0/(1.0+em);
+}
+
+double f_FD_blocking_rel(double x)
+{
+    double em=exp(-x);
+    return 1.0/(1.0+em);
+}
+
+double f_Bose_stimul_rel(double x)
+{
+    double em=exp(-x);
+    return 1.0/(1.0-em);
+}
+
+double integrand_norm_FD(double lp, void *q)
+{
+    Integration_data &d=*(Integration_data *)q;
+    double p=exp(lp);
+    return f_FD(p, d.theta, d.mue) * pow(p, 3);
+}
+
+double norm_FD(double theta, double mue)
+{
+    double epsrel=1.0e-9, epsabs=1.0e-50;
+    double pb=pbar(theta);
+    
+    Integration_data d{0, 0, theta, mue, 1.0, NULL, 0};
+    
+    double a=max(pb*1.0e-12, 1.0e-16);
+    double b=pb*1.0e+2;
+    
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_norm_FD, &d);
+    
+    return r;
+}
+
+//==================================================================================================
+double integrand_p_kernel(double lp, void *q)
+{
+    Integration_data &d=*(Integration_data *)q;
+    double p=exp(lp);
+    double fact= f_FD(p, d.theta, d.mue) * pow(p, 3) * d.K(d.omega0, p, d.omega);
+    
+    // blocking / stimulation factors for final state particles
+    double fB_fac=(d.add_FB>0 ? f_FD_blocking(pfunc_sc(d.omega0, p, d.omega), d.theta, d.mue) : 1.0);
+    fB_fac*=(d.add_FB==2 ? f_FD_blocking_rel(d.omega/d.theta) : 1.0); // neutrino final state blocking
+    fB_fac*=(d.add_FB==3 ? f_Bose_stimul_rel(d.omega/d.theta) : 1.0); // photon final state stimulation
+    
+    return fact/d.norm * fB_fac;
+}
+
+double thermal_kernel_FD(double omega0, double omega, double theta, double mue,
+                         kernel_ptr K, int add_FB)
+{
+    double epsrel=1.0e-9, epsabs=1.0e-50;
+    double pmax = sqrt( (theta*log(1.0e-30) - 2.0)*theta*log(1.0e-30) );
+    double pb=pbar(theta);
+    double norm=norm_FD(theta, mue);
+    
+    Integration_data d{omega0, omega, theta, mue, norm, K, add_FB};
+    
+    double a=CSpack_kernels::lower_limit(omega0, omega), b;
+    
+    a=max(pb*1.0e-12, a);
+    b=max(pmax, pb*20.0);
+    
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_p_kernel, &d);
+    
+    return r;
+}
+
+//==================================================================================================
+void output_thermal_kernel(string fname, int np,
+                           vector<double> omega0,
+                           double theta, double mue,
+                           kernel_ptr K, int add_FB)
+{
+    double om_l=omega0[0]/theta*1.0e-3, om_u=omega0.back()/theta*1.0e+3;
+    vector<double> oarr(np);
+    init_xarr(om_l, om_u, &oarr[0], np, 1, 0);
+
+    ofstream ofile;
+    ofile.open(fname.c_str());
+    ofile.precision(10);
+
+    ofile << "# FD norm= " << norm_FD(theta, mue) << endl;
+    ofile << "# omega1 = ";
+    for(int io=0; io<(int)omega0.size(); io++) ofile << omega0[io] << " ";
+    ofile << endl;
+        
+    for(int k=0; k<np; k++)
+    {
+        ofile << oarr[k]*theta << " ";
+        for(int io=0; io<(int)omega0.size(); io++)
+            ofile << thermal_kernel_FD(omega0[io], oarr[k]*theta, theta, mue, K, add_FB) << " ";
+        
+        ofile << endl;
+    }
+
+    ofile.close();
 }
 
 }
@@ -423,6 +554,10 @@ void output_kernel(string fname, int np,
     ofile.open(fname.c_str());
     ofile.precision(10);
 
+    ofile << "# p2 = ";
+    for(int ip=0; ip<(int)p0.size(); ip++) ofile << p0[ip] << " ";
+    ofile << endl;
+        
     for(int k=0; k<np; k++)
     {
         ofile << oarr[k] << " ";

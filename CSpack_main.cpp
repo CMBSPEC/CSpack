@@ -24,6 +24,7 @@
 using namespace std;
 using namespace CSpack_functions;
 using namespace CSpack_kernels;
+using namespace CSpack_kernels_FD;
 using namespace CSpack_kernel_moments;
 using namespace CSpack_energy_losses;
 using namespace CSpack_equilibrium_solutions;
@@ -36,8 +37,37 @@ int main(int narg, char *args[])
     double omega0=0.1;
     vector<double> p0a={omega0/10.0, omega0/2.0, omega0, omega0*2.0, omega0*5.0};
     
-    output_kernel("./outputs/kernel_ph.dat", 500, omega0, p0a, CSpack_kernels::kernel_exact);
-    output_kernel("./outputs/kernel_nu.dat", 500, omega0, p0a, CSpack_kernels_nu::kernel_exact);
+    output_kernel("./outputs/kernel_ph.dat", 2000, omega0, p0a, CSpack_kernels::kernel_exact);
+    output_kernel("./outputs/kernel_nu.dat", 2000, omega0, p0a, CSpack_kernels_nu::kernel_exact);
+
+    vector<double> o0a={0.001, 0.01, 0.1, 1.0, 10.0};
+
+    output_thermal_kernel("./outputs/kernel_ph_FD.dat", 500, o0a, 0.1, -1.0e+2, CSpack_kernels::kernel_exact);
+    output_thermal_kernel("./outputs/kernel_nu_FD.dat", 500, o0a, 0.1, -1.0e+2, CSpack_kernels_nu::kernel_exact);
+
+    output_thermal_kernel("./outputs/kernel_ph_FD_BB.dat", 500, o0a, 0.1, -1.0e+2, CSpack_kernels::kernel_exact, 3);
+    output_thermal_kernel("./outputs/kernel_nu_FD_FB.dat", 500, o0a, 0.1, -1.0e+2, CSpack_kernels_nu::kernel_exact, 2);
+
+    vector<double> o0b={0.01, 0.1, 1.0, 10.0, 100.0};
+
+    output_thermal_kernel("./outputs/kernel_ph_FD_2.0.dat", 500, o0b, 2.0, -1.0e+2, CSpack_kernels::kernel_exact);
+    output_thermal_kernel("./outputs/kernel_nu_FD_2.0.dat", 500, o0b, 2.0, -1.0e+2, CSpack_kernels_nu::kernel_exact);
+
+    output_thermal_kernel("./outputs/kernel_ph_FD_2.0_FB_mue_0.0.dat", 500, o0b, 2.0, 0.0e+0, CSpack_kernels::kernel_exact, 1);
+    output_thermal_kernel("./outputs/kernel_nu_FD_2.0_FB_mue_0.0.dat", 500, o0b, 2.0, 0.0e+0, CSpack_kernels_nu::kernel_exact, 1);
+
+    output_thermal_kernel("./outputs/kernel_ph_FD_2.0_FB_mue_0.0_BB.dat", 500, o0b, 2.0, 0.0e+0, CSpack_kernels::kernel_exact, 3);
+    output_thermal_kernel("./outputs/kernel_nu_FD_2.0_FB_mue_0.0_FB.dat", 500, o0b, 2.0, 0.0e+0, CSpack_kernels_nu::kernel_exact, 2);
+
+    exit(1);
+
+    output_kernel_moments("./outputs/kernel_moment_0_ph.dat", 500, o0a, 0, CSpack_kernels::kernel_exact);
+    output_kernel_moments("./outputs/kernel_moment_1_ph.dat", 500, o0a, 1, CSpack_kernels::kernel_exact);
+    output_kernel_moments("./outputs/kernel_moment_2_ph.dat", 500, o0a, 2, CSpack_kernels::kernel_exact);
+
+    output_kernel_moments("./outputs/kernel_moment_0_nu.dat", 500, o0a, 0, CSpack_kernels_nu::kernel_exact);
+    output_kernel_moments("./outputs/kernel_moment_1_nu.dat", 500, o0a, 1, CSpack_kernels_nu::kernel_exact);
+    output_kernel_moments("./outputs/kernel_moment_2_nu.dat", 500, o0a, 2, CSpack_kernels_nu::kernel_exact);
 
     exit(1);
 

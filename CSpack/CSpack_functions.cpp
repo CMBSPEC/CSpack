@@ -52,7 +52,8 @@ double omegatot(double omega0, double p0)
 
 double omegamax(double omega0, double p0)
 {
-    if(omega0 > 0.5*(1.0 + p0 - gamma_f(p0))) return omegatot(omega0, p0);
+    //if(omega0 > 0.5*(1.0 + p0 - gamma_f(p0))) return omegatot(omega0, p0);
+    if(omega0 > 0.5*(1.0 - 1.0/(gamma_f(p0)+p0))) return omegatot(omega0, p0);
 
     return omegacrit(omega0, p0);
 }
