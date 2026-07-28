@@ -54,7 +54,7 @@
 @timestamp rot 0
 @timestamp font 0
 @timestamp char size 1.000000
-@timestamp def "Thu Jul  9 11:24:13 2026"
+@timestamp def "Fri Jul 10 18:39:06 2026"
 @with string
 @    string on
 @    string loctype view
@@ -186,7 +186,7 @@
 @    yaxis  bar color 1
 @    yaxis  bar linestyle 1
 @    yaxis  bar linewidth 1.0
-@    yaxis  label "\4Kernel x 100"
+@    yaxis  label "\4Kernel"
 @    yaxis  label layout para
 @    yaxis  label place auto
 @    yaxis  label char size 1.400000

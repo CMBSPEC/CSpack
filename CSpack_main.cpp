@@ -25,6 +25,8 @@ using namespace std;
 using namespace CSpack_functions;
 using namespace CSpack_kernels;
 using namespace CSpack_kernels_FD;
+using namespace CSpack_Collision_Terms;
+using namespace CSpack_opacity;
 using namespace CSpack_kernel_moments;
 using namespace CSpack_energy_losses;
 using namespace CSpack_equilibrium_solutions;
@@ -33,31 +35,99 @@ using namespace CSpack_equilibrium_solutions;
 int main(int narg, char *args[])
 {
     create_directory_if_it_does_not_exist("./outputs", 1);
+
+    vector<double> xa;
+    init_xarr(1.0e-4, 1.0e+4, xa, 30, 1, 0);
+    
+    //ofstream ofiles("./outputs/theta_sc_0_1_exact.dat");
+    //ofstream ofiles("./outputs/theta_sc_1_exact_minus.dat");
+    ofstream ofiles("./outputs/theta_sc_0_1_recoil.dat");
+    ofiles.precision(8);
+
+    double tsc_0=0.0, tsc_1=0.0;
+    for(int k=0; k<(int)xa.size(); k++)
+    {
+        cout << " x = " << xa[k] << " " << flush;
+        ofiles << xa[k] << " ";
+        
+        tsc_0=theta_tau_sc_equal_unity(xa[k], 0, CSpack_kernels_nu::kernel_exact_nue_ep, tsc_0);
+        tsc_1=theta_tau_sc_equal_unity(xa[k], 1, CSpack_kernels_nu::kernel_exact_nue_ep, tsc_1);
+
+        //tsc_0=theta_tau_sc_equal_unity_ODE(xa[k], 0, CSpack_kernels_nu::kernel_exact_nue_ep, 500.0);
+        //tsc_1=theta_tau_sc_equal_unity_ODE(xa[k], 1, CSpack_kernels_nu::kernel_exact_nue_ep, 500.0);
+        
+        cout << tsc_0 << " " << tsc_1 << endl;
+        ofiles << tsc_0 << " " << tsc_1 << endl;
+    }
+    ofiles.close();
+/*
+    vector<double> thea;
+    init_xarr(0.1, 300.0, thea, 50, 1, 0);
+    
+    ofstream ofiles("./outputs/x_sc_0_1_exact.dat");
+    ofiles.precision(8);
+
+    double xsc_0=0.0, xsc_1=0.0;
+    for(int k=0; k<(int)thea.size(); k++)
+    {
+        cout << " theta = " << thea[k] << " " << flush;
+        ofiles << thea[k] << " ";
+        
+        xsc_0=x_tau_sc_equal_unity(thea[k], 0, CSpack_kernels_nu::kernel_exact_nue_ep, xsc_0);
+        xsc_1=x_tau_sc_equal_unity(thea[k], 1, CSpack_kernels_nu::kernel_exact_nue_ep, xsc_1);
+        
+        cout << xsc_0 << " " << xsc_1 << endl;
+        ofiles << xsc_0 << " " << xsc_1 << endl;
+    }
+    ofiles.close();
+*/
+    exit(0);
+    
+    double Th_e=1.0;
+    cout << Moment(0.1, 0, Th_e, 0.0, CSpack_kernels_nu::kernel_exact_nue_e) << endl;
+    cout << Moment(0.1, 1, Th_e, 0.0, CSpack_kernels_nu::kernel_exact_nue_e) << endl;
+    cout << tau_sc_generalized(1.0, 2.0, 0, CSpack_kernels_nu::kernel_exact_nue_ep) << endl;
+    exit(0);
+
+    double Th_r=1.0;
+    string add="_1.0";
+    output_Collision_Term("./outputs/Coll_ph_no_FB"+add+".dat", 0.01, 50.0, 400, Th_r, -1.0e+2, "ph");
+    output_Collision_Term("./outputs/Coll_ph_FB"+add+".dat", 0.01, 50.0, 400, Th_r, 0.0, "ph");
+    output_Collision_Term("./outputs/Coll_nu_no_FB"+add+".dat", 0.01, 50.0, 400, Th_r, -1.0e+2, "nu");
+    output_Collision_Term("./outputs/Coll_nu_FB"+add+".dat", 0.01, 50.0, 400, Th_r, 0.0, "nu");
+    exit(0);
+
+    output_kernel("./outputs/kernel_nue_e_sc.dat", 2000, 0.5, 1.0, CSpack_kernels_nu::kernel_exact_nue_e);
+    output_kernel("./outputs/kernel_nue_p_sc.dat", 2000, 0.5, 1.0, CSpack_kernels_nu::kernel_exact_nue_p);
+    output_kernel("./outputs/kernel_numutau_e_sc.dat", 2000, 0.5, 1.0, CSpack_kernels_nu::kernel_exact_nutau_e);
+    output_kernel("./outputs/kernel_numutau_p_sc.dat", 2000, 0.5, 1.0, CSpack_kernels_nu::kernel_exact_nutau_e);
+
+    exit(0);
     
     double omega0=0.1;
     vector<double> p0a={omega0/10.0, omega0/2.0, omega0, omega0*2.0, omega0*5.0};
     
     output_kernel("./outputs/kernel_ph.dat", 2000, omega0, p0a, CSpack_kernels::kernel_exact);
-    output_kernel("./outputs/kernel_nu.dat", 2000, omega0, p0a, CSpack_kernels_nu::kernel_exact);
+    output_kernel("./outputs/kernel_nu.dat", 2000, omega0, p0a, CSpack_kernels_nu::kernel_exact_nue_e);
 
     vector<double> o0a={0.001, 0.01, 0.1, 1.0, 10.0};
 
     output_thermal_kernel("./outputs/kernel_ph_FD.dat", 500, o0a, 0.1, -1.0e+2, CSpack_kernels::kernel_exact);
-    output_thermal_kernel("./outputs/kernel_nu_FD.dat", 500, o0a, 0.1, -1.0e+2, CSpack_kernels_nu::kernel_exact);
+    output_thermal_kernel("./outputs/kernel_nu_FD.dat", 500, o0a, 0.1, -1.0e+2, CSpack_kernels_nu::kernel_exact_nue_e);
 
     output_thermal_kernel("./outputs/kernel_ph_FD_BB.dat", 500, o0a, 0.1, -1.0e+2, CSpack_kernels::kernel_exact, 3);
-    output_thermal_kernel("./outputs/kernel_nu_FD_FB.dat", 500, o0a, 0.1, -1.0e+2, CSpack_kernels_nu::kernel_exact, 2);
+    output_thermal_kernel("./outputs/kernel_nu_FD_FB.dat", 500, o0a, 0.1, -1.0e+2, CSpack_kernels_nu::kernel_exact_nue_e, 2);
 
     vector<double> o0b={0.01, 0.1, 1.0, 10.0, 100.0};
 
     output_thermal_kernel("./outputs/kernel_ph_FD_2.0.dat", 500, o0b, 2.0, -1.0e+2, CSpack_kernels::kernel_exact);
-    output_thermal_kernel("./outputs/kernel_nu_FD_2.0.dat", 500, o0b, 2.0, -1.0e+2, CSpack_kernels_nu::kernel_exact);
+    output_thermal_kernel("./outputs/kernel_nu_FD_2.0.dat", 500, o0b, 2.0, -1.0e+2, CSpack_kernels_nu::kernel_exact_nue_e);
 
     output_thermal_kernel("./outputs/kernel_ph_FD_2.0_FB_mue_0.0.dat", 500, o0b, 2.0, 0.0e+0, CSpack_kernels::kernel_exact, 1);
-    output_thermal_kernel("./outputs/kernel_nu_FD_2.0_FB_mue_0.0.dat", 500, o0b, 2.0, 0.0e+0, CSpack_kernels_nu::kernel_exact, 1);
+    output_thermal_kernel("./outputs/kernel_nu_FD_2.0_FB_mue_0.0.dat", 500, o0b, 2.0, 0.0e+0, CSpack_kernels_nu::kernel_exact_nue_e, 1);
 
     output_thermal_kernel("./outputs/kernel_ph_FD_2.0_FB_mue_0.0_BB.dat", 500, o0b, 2.0, 0.0e+0, CSpack_kernels::kernel_exact, 3);
-    output_thermal_kernel("./outputs/kernel_nu_FD_2.0_FB_mue_0.0_FB.dat", 500, o0b, 2.0, 0.0e+0, CSpack_kernels_nu::kernel_exact, 2);
+    output_thermal_kernel("./outputs/kernel_nu_FD_2.0_FB_mue_0.0_FB.dat", 500, o0b, 2.0, 0.0e+0, CSpack_kernels_nu::kernel_exact_nue_e, 2);
 
     exit(1);
 
@@ -65,9 +135,9 @@ int main(int narg, char *args[])
     output_kernel_moments("./outputs/kernel_moment_1_ph.dat", 500, o0a, 1, CSpack_kernels::kernel_exact);
     output_kernel_moments("./outputs/kernel_moment_2_ph.dat", 500, o0a, 2, CSpack_kernels::kernel_exact);
 
-    output_kernel_moments("./outputs/kernel_moment_0_nu.dat", 500, o0a, 0, CSpack_kernels_nu::kernel_exact);
-    output_kernel_moments("./outputs/kernel_moment_1_nu.dat", 500, o0a, 1, CSpack_kernels_nu::kernel_exact);
-    output_kernel_moments("./outputs/kernel_moment_2_nu.dat", 500, o0a, 2, CSpack_kernels_nu::kernel_exact);
+    output_kernel_moments("./outputs/kernel_moment_0_nu.dat", 500, o0a, 0, CSpack_kernels_nu::kernel_exact_nue_e);
+    output_kernel_moments("./outputs/kernel_moment_1_nu.dat", 500, o0a, 1, CSpack_kernels_nu::kernel_exact_nue_e);
+    output_kernel_moments("./outputs/kernel_moment_2_nu.dat", 500, o0a, 2, CSpack_kernels_nu::kernel_exact_nue_e);
 
     exit(1);
 

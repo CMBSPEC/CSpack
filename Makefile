@@ -35,6 +35,7 @@ cleanallDEV:
 	rm -f $(TOOLS_DIR)/Simple_routines/*.o $(TOOLS_DIR)/Simple_routines/*.~
 	rm -f $(TOOLS_DIR)/Compton_Kernel/*.o $(TOOLS_DIR)/Compton_Kernel/*.~
 	rm -f $(TOOLS_DIR)/Integration/*.o $(TOOLS_DIR)/Integration/*~
+	rm -f $(TOOLS_DIR)/Cosmology*.o $(TOOLS_DIR)/Cosmology*~
 
 tidy:
 	make cleanallDEV

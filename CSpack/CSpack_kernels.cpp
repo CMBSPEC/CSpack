@@ -6,11 +6,13 @@
 #include "routines.h"
 #include "Patterson.h"
 #include "Compton_Kernel.h"
+#include "ODE_solver.h"
 
 #include "CSpack.h"
 
 using namespace std;
 using namespace CSpack_functions;
+using namespace ODE_solver;
 
 //==================================================================================================
 //
@@ -281,12 +283,6 @@ double thermal_kernel_SS_C(double omega0, double omega, double theta)
 //==================================================================================================
 namespace CSpack_kernels_nu {
 
-double gL =0.731;
-double gR =gL-0.5;
-double alpha_norm=gL*gL+gR*gR-gL*gR;
-double alpha_LR=gL*gR/alpha_norm;
-double beta_LR=gR*gR/alpha_norm;
-
 //==================================================================================================
 double I20_omega14(double pt, double lambda)
 {
@@ -385,7 +381,8 @@ vector<double> Get_Sigma_lu(double omega1, double p2, double omega3, string zone
 }
 
 //==================================================================================================
-double kernel_exact(double omega1, double p2, double omega3)
+double kernel_exact(double omega1, double p2, double omega3,
+                    double alpha_LR, double beta_LR)
 {
     double g2=gamma_f(p2);
     double gt=g2+omega1, pt=pfunc(gt);
@@ -397,16 +394,69 @@ double kernel_exact(double omega1, double p2, double omega3)
     
     // comment: all functions scaled by omega1^4
     double I20 =I20_omega14(pt, lambda[1])
-    -I20_omega14(pt, lambda[0]);
+               -I20_omega14(pt, lambda[0]);
     
     double I_a =I_alpha(pt, lambda[1], kappa, Sigma[1])
-    -I_alpha(pt, lambda[0], kappa, Sigma[0]);
+               -I_alpha(pt, lambda[0], kappa, Sigma[0]);
     
     double I_b =I_beta (pt, lambda[1], kappa, Sigma[1], omega1, omega3)
-    -I_beta (pt, lambda[0], kappa, Sigma[0], omega1, omega3);
+               -I_beta (pt, lambda[0], kappa, Sigma[0], omega1, omega3);
     
     return (I20+alpha_LR*I_a+beta_LR*I_b)/pow(omega1, 4)/g2/p2;
 }
+
+//==================================================================================================
+double kernel_exact_nue_e(double omega1, double p2, double omega3)
+{
+    double gL=0.731, gR=0.231;
+    double alpha_norm=gL*gL+gR*gR-gL*gR;
+    double alpha_LR=gL*gR/alpha_norm;
+    double beta_LR=gR*gR/alpha_norm;
+
+    return kernel_exact(omega1, p2, omega3, alpha_LR, beta_LR);
+}
+
+double kernel_exact_nue_p(double omega1, double p2, double omega3)
+{
+    double gR=0.731, gL=0.231;
+    double alpha_norm=gL*gL+gR*gR-gL*gR;
+    double alpha_LR=gL*gR/alpha_norm;
+    double beta_LR=gR*gR/alpha_norm;
+
+    return kernel_exact(omega1, p2, omega3, alpha_LR, beta_LR);
+}
+
+double kernel_exact_nue_ep(double omega1, double p2, double omega3)
+{
+    return kernel_exact_nue_e(omega1, p2, omega3) + kernel_exact_nue_p(omega1, p2, omega3);
+}
+
+double kernel_exact_numu_e(double omega1, double p2, double omega3)
+{
+    double gL=-0.269, gR=0.231;
+    double alpha_norm=gL*gL+gR*gR-gL*gR;
+    double alpha_LR=gL*gR/alpha_norm;
+    double beta_LR=gR*gR/alpha_norm;
+
+    return kernel_exact(omega1, p2, omega3, alpha_LR, beta_LR);
+}
+
+double kernel_exact_numu_p(double omega1, double p2, double omega3)
+{
+    double gR=-0.269, gL=0.231;
+    double alpha_norm=gL*gL+gR*gR-gL*gR;
+    double alpha_LR=gL*gR/alpha_norm;
+    double beta_LR=gR*gR/alpha_norm;
+
+    return kernel_exact(omega1, p2, omega3, alpha_LR, beta_LR);
+}
+
+double kernel_exact_nutau_e(double omega1, double p2, double omega3)
+{ return kernel_exact_numu_e(omega1, p2, omega3); }
+
+double kernel_exact_nutau_p(double omega1, double p2, double omega3)
+{ return kernel_exact_numu_p(omega1, p2, omega3); }
+
 }
 
 //==================================================================================================
@@ -432,20 +482,13 @@ double f_FD(double p, double theta, double mue)
     return exp(-Dg/theta)/(1.0+exp( (mue-1.0-Dg)/theta ) );
 }
 
-double f_FD_blocking(double p, double theta, double mue)
+double f_Fermi_blocking(double z)
 {
-    double gamma=sqrt(1.0+p*p);
-    double em=exp(-(gamma-mue)/theta);
+    double em=exp(-z);
     return 1.0/(1.0+em);
 }
 
-double f_FD_blocking_rel(double x)
-{
-    double em=exp(-x);
-    return 1.0/(1.0+em);
-}
-
-double f_Bose_stimul_rel(double x)
+double f_Bose_stimul(double x)
 {
     double em=exp(-x);
     return 1.0/(1.0-em);
@@ -481,9 +524,10 @@ double integrand_p_kernel(double lp, void *q)
     double fact= f_FD(p, d.theta, d.mue) * pow(p, 3) * d.K(d.omega0, p, d.omega);
     
     // blocking / stimulation factors for final state particles
-    double fB_fac=(d.add_FB>0 ? f_FD_blocking(pfunc_sc(d.omega0, p, d.omega), d.theta, d.mue) : 1.0);
-    fB_fac*=(d.add_FB==2 ? f_FD_blocking_rel(d.omega/d.theta) : 1.0); // neutrino final state blocking
-    fB_fac*=(d.add_FB==3 ? f_Bose_stimul_rel(d.omega/d.theta) : 1.0); // photon final state stimulation
+    double fB_fac, Ee=gamma_sc(d.omega0, p, d.omega)-d.mue;
+    fB_fac =(d.add_FB> 0 ? f_Fermi_blocking(     Ee/d.theta) : 1.0);
+    fB_fac*=(d.add_FB==2 ? f_Fermi_blocking(d.omega/d.theta) : 1.0); // neutrino final state blocking
+    fB_fac*=(d.add_FB==3 ? f_Bose_stimul   (d.omega/d.theta) : 1.0); // photon final state stimulation
     
     return fact/d.norm * fB_fac;
 }
@@ -541,6 +585,422 @@ void output_thermal_kernel(string fname, int np,
 
 }
 
+//==================================================================================================
+// Evaluation of collision terms for thermal input distributions
+//==================================================================================================
+namespace CSpack_Collision_Terms {
+
+//==================================================================================================
+struct Integration_data_col
+{
+    double omega0;
+    double th_r, th_e, mu_e;
+    kernel_ptr K;
+    string sel;
+};
+
+double integrand_collision_term(double lomega, void *q)
+{
+    Integration_data_col &d=*(Integration_data_col *)q;
+    
+    double omega=exp(lomega);
+    double x0=d.omega0/d.th_r, x=omega/d.th_r;
+    double phi=d.th_r/d.th_e;
+    double F=exp((x-x0)*(phi-1.0))-1.0, P_th_stim=0.0;
+    
+    if(d.sel=="nu")
+    {
+        F*=exp(-x0)/(1.0+exp(-x0))/(1.0+exp(-x));
+        P_th_stim=CSpack_kernels_FD::thermal_kernel_FD(d.omega0, omega, d.th_e, d.mu_e, d.K, 1);
+        P_th_stim*=x0*x0; // cross section scaling
+    }
+    else if(d.sel=="ph")
+    {
+        F*=exp(-x0)/one_minus_exp_mx(x0)/one_minus_exp_mx(x);
+        P_th_stim=CSpack_kernels_FD::thermal_kernel_FD(d.omega0, omega, d.th_e, d.mu_e, d.K, 1);
+    }
+    
+    return omega * P_th_stim * F;
+}
+
+double Collision_Term(double omega0, double th_r, double th_e, double mu_e, kernel_ptr K, string sel)
+{
+    double epsrel=1.0e-6, epsabs=1.0e-50;
+    
+    Integration_data_col d{omega0, th_r, th_e, mu_e, K, sel};
+    
+    double a=omegamin(omega0, sqrt(3.0*th_e))/40.0, b=omegamax(omega0, sqrt(3.0*th_e))*40.0;
+    
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_collision_term, &d);
+    
+    return r;
+}
+
+//==================================================================================================
+struct Integration_data_mom
+{
+    double omega0;
+    int k;
+    double th_e, mu_e;
+    kernel_ptr K;
+    double norm;
+};
+
+double integrand_moment(double lp, void *q)
+{
+    Integration_data_mom &d=*(Integration_data_mom *)q;
+    
+    double p=exp(lp);
+    double fact=CSpack_kernels_FD::f_FD(p, d.th_e, d.mu_e) * pow(p, 3) / d.norm;
+    double M=CSpack_kernel_moments_numerical::Sigma_func(d.omega0, p, d.k, d.K);
+
+    return fact * M;
+}
+
+double Moment(double omega0, int k, double th_e, double mu_e, kernel_ptr K)
+{
+    double epsrel=1.0e-5, epsabs=1.0e-50;
+    double pmax = sqrt( (th_e*log(1.0e-30) - 2.0)*th_e*log(1.0e-30) );
+    double pb=pbar(th_e);
+    double norm=CSpack_kernels_FD::norm_FD(th_e, mu_e);
+    
+    Integration_data_mom d{omega0, k, th_e, mu_e, K, norm};
+    
+    double a=pb*1.0e-4, b=max(pmax, pb*20.0);
+    
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_moment, &d);
+    
+    return r;
+}
+
+//==================================================================================================
+double integrand_moment_II(double lomega, void *q)
+{
+    Integration_data_mom &d=*(Integration_data_mom *)q;
+    
+    double omega=exp(lomega);
+    double P_th_stim=CSpack_kernels_FD::thermal_kernel_FD(d.omega0, omega, d.th_e, d.mu_e, d.K, 0);
+    
+    return omega * P_th_stim * pow(omega/d.omega0-1.0, d.k);
+}
+
+double Moment_II(double omega0, int k, double th_e, double mu_e, kernel_ptr K)
+{
+    double epsrel=1.0e-6, epsabs=1.0e-50;
+    
+    Integration_data_mom d{omega0, k, th_e, mu_e, K, 1.0};
+    
+    double a=omegamin(omega0, sqrt(3.0*th_e))/40.0, b=omegamax(omega0, sqrt(3.0*th_e))*40.0;
+    
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_moment_II, &d);
+    
+    return r;
+}
+
+//==================================================================================================
+double integrand_moment_Doppler(double lp, void *q)
+{
+    Integration_data_mom &d=*(Integration_data_mom *)q;
+    
+    double p=exp(lp);
+    double fact=CSpack_kernels_FD::f_FD(p, d.th_e, d.mu_e) * pow(p, 3) / d.norm;
+    
+    if(d.k==0) fact*=1.0+2.0*p*p;
+    else if(d.k==1) fact*=6.0*p*p/3.0*(1.0+8.0/5.0*p*p) * 0.8656; // lambda_LR=0.8656 for e and p scatter
+
+    return fact;
+}
+
+double Moment_Doppler(int k, double th_e, double mu_e)
+{
+    double epsrel=1.0e-9, epsabs=1.0e-50;
+    double pmax = sqrt( (th_e*log(1.0e-30) - 2.0)*th_e*log(1.0e-30) );
+    double pb=pbar(th_e);
+    double norm=CSpack_kernels_FD::norm_FD(th_e, mu_e);
+    
+    Integration_data_mom d{0.0, k, th_e, mu_e, NULL, norm};
+    
+    double a=pb*1.0e-12, b=max(pmax, pb*20.0);
+    
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_moment_Doppler, &d);
+    
+    // factor of 2 for e- and e+
+    return 2.0*r;
+}
+
+double Moment_recoil(double omega1, int k)
+{
+    double r=1.0, xi=1.0+2.0*omega1;
+    double alphaLR=0.4031;
+    double betaLRep=(0.1273+1.276)/2.0;
+    
+    if(k==0) r=1.0/xi*(1.0+alphaLR*2.0*omega1/xi-betaLRep*2.0*omega1*(3.0+4.0*omega1)/3.0/xi/xi );
+    else if(k==1) r=omega1/pow(xi, 2)*(1.0-alphaLR*(1.0-6.0*omega1)/3.0/xi-betaLRep*2.0*omega1*(4.0+5.0*omega1)/3.0/xi/xi);
+    
+    // factor of 2 for e- and e+
+    return 2.0*r;
+}
+
+//==================================================================================================
+double weight_func(double x, void *p){ return pow(x, 3); }          // optimized for energy integral
+
+void output_Collision_Term(string fname,
+                           double xmin, double xmax, int np,
+                           double th_r, double mu_e,
+                           string sel)
+{
+    vector<double> xarr(np), wx3=xarr;
+    init_xarr(xmin, xmax, &xarr[0], np, 1, 0);
+    
+    ofstream ofile;
+    ofile.open(fname.c_str());
+    ofile.precision(10);
+    
+    vector<double> DT_T={1.0e-3, 1.0e-2, 1.0e-1, 2.0e-1, 1.0};
+    vector<vector<double>> Dn(np, DT_T);
+    vector<double> Norm(DT_T.size(), 0.0);
+
+    // setup weights for energy integral int x^3 Dn dx
+    CSpack_weights::compute_all_Lagrange_Polynomial_weights(5, xarr, wx3, weight_func);
+    for(int k=0; k<np; k++) wx3[k]*=pow(xarr[k], 3);
+
+    // decide which kernel case
+    kernel_ptr K=NULL;
+    if(sel=="ph") K=CSpack_kernels::kernel_exact;
+    else if(sel=="nu") K=CSpack_kernels_nu::kernel_exact_nue_e;
+    else throw_error("output_Collision_Term", "select 'ph' or 'nu'", 1);
+
+    for(int k=0; k<np; k++)
+    {
+        for(int iT=0; iT<(int)DT_T.size(); iT++)
+        {
+            Dn[k][iT]=Collision_Term(xarr[k]*th_r, th_r, th_r*(1.0+DT_T[iT]), mu_e, K, sel);
+            Norm[iT]+=wx3[k]*Dn[k][iT];
+        }
+    }
+    
+    // write header
+    ofile << "# th_r = " << th_r << endl;
+    
+    ofile << "# th_e/th_r-1 = ";
+    for(int iT=0; iT<(int)DT_T.size(); iT++) ofile << DT_T[iT] << " ";
+    ofile << endl;
+
+    ofile << "# Norms = ";
+    for(int iT=0; iT<(int)DT_T.size(); iT++) ofile << Norm[iT] << " ";
+    ofile << endl;
+
+    for(int k=0; k<np; k++)
+    {
+        ofile << xarr[k] << " ";
+        for(int iT=0; iT<(int)DT_T.size(); iT++)
+            ofile << pow(xarr[k], 3)*Dn[k][iT]/Norm[iT] << " ";
+        ofile << endl;
+    }
+
+    ofile.close();
+}
+
+}
+
+//==================================================================================================
+// Evaluation of opacities over moments
+//==================================================================================================
+namespace CSpack_opacity {
+
+vector<int> spline_mem_indices;
+
+double gstar_rho_spl(double theta)
+{
+    double lx=log(min(1.0e+6, max(0.001, theta*511.0e-3)));
+    return exp(calc_spline_JC(lx, spline_mem_indices[0], "gstar_rho_spl"));
+}
+
+double Hfunc(double theta)
+{
+    if(spline_mem_indices.size()==0)
+        load_data_from_file("./Tools/Cosmology/datafiles_SMgstar.dat", 3, spline_mem_indices, 1, 1, 0);
+    
+    double TGeV=theta*511.0e-6;
+    double MPl=1.22e+19;
+    return 1.66*sqrt(gstar_rho_spl(theta))*pow(TGeV, 2)/MPl;
+}
+
+//==================================================================================================
+double integrand_Nep(double lp, void *q)
+{
+    double theta=*(double *)q;
+    double p=exp(lp), gamma=gamma_f(p), z=gamma/theta;
+    return pow(p, 3)* exp(-z)/(1.0+exp(-z));
+}
+
+double Nep_FD(double theta)
+{
+    double epsrel=1.0e-9, epsabs=1.0e-50;
+    double pb=pbar(theta);
+    double d=theta;
+    
+    double a=max(pb*1.0e-12, 1.0e-16);
+    double b=pb*1.0e+2;
+    
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_Nep, &d);
+    
+    return pow(511.0e-6, 3)*r/2.0/PI2;
+}
+
+//==================================================================================================
+struct Integration_tau
+{
+    double x;
+    int k;
+    kernel_ptr K;
+};
+
+double integrand_tau(double ltheta, void *q)
+{
+    Integration_tau &d=*(Integration_tau *)q;
+    
+    double theta=exp(ltheta);
+    double H=Hfunc(theta);     // 1/GeV
+    //double Sigma_k=CSpack_Collision_Terms::Moment_II(d.x*theta, d.k, theta, 0.0, d.K);
+    //double Sigma_k=CSpack_Collision_Terms::Moment(d.x*theta, d.k, theta, 0.0, d.K);
+    //double Sigma_k=CSpack_Collision_Terms::Moment_Doppler(d.k, theta, 0.0);
+    double Sigma_k=CSpack_Collision_Terms::Moment_recoil(d.x*theta, d.k);
+    double Nep=Nep_FD(theta);  // GeV^3
+    double sigma1=3.8037e-17;  // 1/GeV^2 for nue-e scattering
+    
+    return sigma1 * pow(d.x, 2) * Nep * Sigma_k * pow(theta, 2)/H;
+}
+
+double tau_sc_generalized(double x, double theta, int k, kernel_ptr K)
+{
+    double epsrel=1.0e-5, epsabs=1.0e-50;
+    
+    Integration_tau d{x, k, K};
+    
+    double a=0.001, b=max(0.001, theta);
+    double r=Integrate_using_Patterson_adaptive(log(a), log(b), epsrel, epsabs, integrand_tau, &d);
+    
+    return r;
+}
+
+//==================================================================================================
+void fcn_jac(int *neq, double *z, double *y, double *f, int col, void *p)
+{
+    if(col<0) f[0]=-integrand_tau(log(*z), p)/(*z);
+    else f[0]=0.0;
+    
+    return;
+}
+
+vector<vector<double>> tau_sc_generalized_ODE(double x, double theta_max, int k, kernel_ptr K)
+{
+    Integration_tau DEF{x, k, K};
+
+    int neq=1;
+    ODE_solver_Solution Sz_e(neq);
+    ODE_solver_accuracies tols_e(neq);
+    ODE_Solver_data ODE_Solver_info_PDE_e;
+
+    tols_e.rel.resize(neq, 1.0e-4);
+    tols_e.abs.resize(neq, 1.0e-40);
+
+    Sz_e.z=0.005;
+    Sz_e.y[0]=0.0;  // tau_sc initially
+
+    ODE_Solver_info_PDE_e.p=&DEF;
+    ODE_Solver_set_up_solution_and_memory(Sz_e, tols_e, ODE_Solver_info_PDE_e, fcn_jac, 0);
+
+    vector<double> theta_a;
+    init_xarr(Sz_e.z, theta_max, theta_a, 500, 1, 0);
+
+    vector<vector<double>> Sol(theta_a.size()-1, vector<double>(2, 0.0));
+    
+    for(int k=1; k<(int)theta_a.size(); k++)
+    {
+        //================================================================================
+        // do time-step
+        //================================================================================
+        ODE_Solver_Solve_history(theta_a[k-1], theta_a[k],
+                                 1.0e-8*theta_a[k], fabs(theta_a[k]-theta_a[k-1]),
+                                 Sz_e, ODE_Solver_info_PDE_e);
+        
+        Sol[k-1][0]=Sz_e.z; Sol[k-1][1]=Sz_e.y[0];
+        
+        //cout << theta_a[k] << " " << Sz_e.y[0] << endl;
+    }
+
+    return Sol;
+}
+
+//==================================================================================================
+double root_tau_sc_unity(double *lx, void *q)
+{
+    Integration_tau &d=*(Integration_tau *)q;
+    double x=exp(*lx);
+
+    return tau_sc_generalized(x, d.x, d.k, d.K)-1.0; // using d.x as messenger for theta here...
+}
+
+// get x at which tau_sc==1
+double x_tau_sc_equal_unity(double theta, int k, kernel_ptr K, double x_guess)
+{
+    Integration_tau d{theta, k, K};
+
+    double lxmin=log(1.0e-3), lxmax=log(1.0e+6);
+    if(x_guess>0){ lxmin=log(x_guess/5.0); lxmax=log(x_guess*5.0); }
+    
+    if(root_tau_sc_unity(&lxmin, &d)*root_tau_sc_unity(&lxmax, &d)>0) return 0.0;
+    
+    return exp(find_root_brent(root_tau_sc_unity, &d, lxmin, lxmax, 1.0e-3, "x_tau_sc_equal_unity"));
+}
+
+//==================================================================================================
+double root_tau_sc_unity_theta(double *lthe, void *q)
+{
+    Integration_tau &d=*(Integration_tau *)q;
+    double t=exp(*lthe);
+
+    return tau_sc_generalized(d.x, t, d.k, d.K)-1.0;
+}
+
+// get theta at which tau_sc==1
+double theta_tau_sc_equal_unity(double x, int k, kernel_ptr K, double t_guess)
+{
+    Integration_tau d{x, k, K};
+
+    double ltmin=log(1.0e-1), ltmax=log(3.0e+6);
+    if(t_guess>0){ ltmin=log(t_guess/3.0); ltmax=log(t_guess*3.0); }
+    
+    if(root_tau_sc_unity_theta(&ltmin, &d)*root_tau_sc_unity_theta(&ltmax, &d)>0) return 0.0;
+    
+    return exp(find_root_brent(root_tau_sc_unity_theta, &d, ltmin, ltmax, 1.0e-3, "theta_tau_sc_equal_unity"));
+}
+
+//==================================================================================================
+// get x at which tau_sc==1
+//==================================================================================================
+double theta_tau_sc_equal_unity_ODE(double x, int k, kernel_ptr K, double theta_max)
+{
+    vector<vector<double>> Sol=tau_sc_generalized_ODE(x, theta_max, k, K);
+
+    // no solution found
+    if(Sol.back()[1]<1.0) return 0.0;
+
+    // find tau<1.0 in array
+    int iT;
+    for(iT=Sol.size()-1; iT>0; iT--) if(Sol[iT][1]<1.0) break;
+
+    if(iT+1>=(int)Sol.size()) return 0.0;
+    
+    // tau=(Sol[iT+1][1]-Sol[iT][1])/(Sol[iT+1][0]-Sol[iT][0])*(T-Sol[iT][0])+Sol[iT][1];
+    return (1.0-Sol[iT][1])*(Sol[iT+1][0]-Sol[iT][0])/(Sol[iT+1][1]-Sol[iT][1])+Sol[iT][0];
+}
+
+}
+
+//==================================================================================================
+// simple Kernel outputs
 //==================================================================================================
 void output_kernel(string fname, int np,
                    double omega0, vector<double> p0,
