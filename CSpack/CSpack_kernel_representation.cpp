@@ -1,5 +1,6 @@
 //==================================================================================================
-//  Created by JC in March 2020.
+// Created by JC in March 2020.
+// Last modified: Sept 2026 [JC+Codex]
 //==================================================================================================
 
 #include <string>
@@ -16,6 +17,25 @@ using namespace CSpack_kernels;
 using namespace CSpack_kernel_moments;
 
 //==================================================================================================
+double thermal_kernel_photon_KR(double omega0, double omega, double theta, void *p)
+{
+    string type="exact";
+    if(p!=NULL) type=*((string *)p);
+
+    return thermal_kernel_all(omega0, omega, theta, type);
+}
+
+double thermal_kernel_neutrino_KR(double omega0, double omega, double theta, void *p)
+{
+    if(p==NULL) throw_error("thermal_kernel_neutrino_KR", "kernel parameters not set", 1);
+
+    Kernel_representation_nu_params &d=*(Kernel_representation_nu_params *)p;
+    if(d.K==NULL) throw_error("thermal_kernel_neutrino_KR", "neutrino kernel not set", 1);
+
+    return CSpack_kernels_FD::thermal_kernel_FD(omega0, omega, theta, d.mue, d.K, d.add_FB);
+}
+
+//==================================================================================================
 Kernel_representation::~Kernel_representation()
 {
     if(spline_up  !=-1) free_spline_JC(spline_up  , "P+");
@@ -25,6 +45,16 @@ Kernel_representation::~Kernel_representation()
 Kernel_representation::Kernel_representation()
 {
     spline_up=spline_down=np=-1;
+}
+
+Kernel_representation::Kernel_representation(double omin, double om0, double omax, int npv,
+                                             double The,
+                                             double eps_thresh, double eps_interpol,
+                                             thermal_kernel_ptr K, void *p,
+                                             int maxMom, bool stim)
+{
+    spline_up=spline_down=np=-1;
+    this->init(omin, om0, omax, npv, The, eps_thresh, eps_interpol, K, p, maxMom, stim);
 }
 
 Kernel_representation::Kernel_representation(double omin, double om0, double omax, int npv,
@@ -55,21 +85,24 @@ void Kernel_representation::allocate_splines(int npv)
 }
 
 void Kernel_representation::init(double omin, double om0, double omax, int npv, double The,
-                                 double eps_thresh, double eps_interpol, int maxMom, bool stim)
+                                 double eps_thresh, double eps_interpol,
+                                 thermal_kernel_ptr K, void *p,
+                                 int maxMom, bool stim)
 {
+    if(K==NULL) throw_error("Kernel_representation::init", "thermal kernel not set", 1);
+
     omega0=om0; Theta=The;
     wmin=omin/omega0; wmax=omax/omega0;
-
-    string type="exact";
+    Moments.clear();
 
     // use analytic formula for non-relativistic limit
     //if(om0<1.0e-4 && The<1.0e-4) type="SS_C";
 
-    P0=thermal_kernel_all(omega0, omega0, Theta, type);
+    P0=K(omega0, omega0, Theta, p);
 
     if(np==-1) allocate_splines(npv);
-    create_kernel_splines(omin, eps_thresh, npv, type);
-    create_kernel_splines(omax, eps_thresh, npv, type);
+    create_kernel_splines(omin, eps_thresh, npv, K, p);
+    create_kernel_splines(omax, eps_thresh, npv, K, p);
 
     // compute moments
     for(int k=0; k<=maxMom; k++) Moments.push_back(compute_moment(k, stim));
@@ -82,20 +115,31 @@ void Kernel_representation::init(double omin, double om0, double omax, int npv, 
 //             << endl;
 }
 
+void Kernel_representation::init(double omin, double om0, double omax, int npv, double The,
+                                 double eps_thresh, double eps_interpol, int maxMom, bool stim)
+{
+    string type="exact";
+    init(omin, om0, omax, npv, The, eps_thresh, eps_interpol,
+         thermal_kernel_photon_KR, &type, maxMom, stim);
+
+    return;
+}
+
 //==================================================================================================
 // function for root finding process
 //==================================================================================================
 struct rootData
 {
     double P0eps, omega0, Theta;
-    string type;
+    thermal_kernel_ptr K;
+    void *p;
 };
 
 double root_func(double *lw, void *p)
 {
     rootData *d=(rootData *) p;
     double w=exp(*lw);
-    return thermal_kernel_all(d->omega0, d->omega0*w, d->Theta, d->type)/d->P0eps-1.0;
+    return d->K(d->omega0, d->omega0*w, d->Theta, d->p)/d->P0eps-1.0;
 }
 
 double find_root_CS(double (* func)(double *, void *p), void *p,
@@ -113,7 +157,8 @@ double find_root_CS(double (* func)(double *, void *p), void *p,
 //==================================================================================================
 void Kernel_representation::create_kernel_splines(double omega_lim,
                                                   double eps_thresh,
-                                                  int npv, string type)
+                                                  int npv,
+                                                  thermal_kernel_ptr K, void *p)
 {
     if(np!=-1 && np!=npv) throw_error("create_kernel_splines", "memory not correctly allocated", 1);
 
@@ -128,7 +173,7 @@ void Kernel_representation::create_kernel_splines(double omega_lim,
     rootData d;
     d.P0eps=P0*eps_thresh;
     d.omega0=omega0; d.Theta=Theta;
-    d.type=type;
+    d.K=K; d.p=p;
 
     //==============================================================================================
     // estimate of kernel width
@@ -137,7 +182,7 @@ void Kernel_representation::create_kernel_splines(double omega_lim,
                                    : omegamax(omega0, pbar(Theta))/omega0 );
 
     double lwstart=0.0, lwlim=log(omega_lim/omega0), lwsig=log(wfac), lwc;
-    double P=thermal_kernel_all(omega0, omega0*exp(lwsig), Theta, type);
+    double P=K(omega0, omega0*exp(lwsig), Theta, p);
 
     // added start of search if P==0. This is to avoid that P==0 values are inside the domain
     if(P<=P0*eps_thresh || P==0.0) lwc=find_root_CS(root_func, &d, lwsig, lwstart, 1.0e-3);
@@ -147,7 +192,7 @@ void Kernel_representation::create_kernel_splines(double omega_lim,
         while(P>P0*eps_thresh && fabs(lwsig)<=fabs(lwlim))
         {
             lwsig*=2.0;
-            P=thermal_kernel_all(omega0, omega0*exp(lwsig), Theta, type);
+            P=K(omega0, omega0*exp(lwsig), Theta, p);
         }
 
         // if w found within range that brackets null --> solve
@@ -168,7 +213,7 @@ void Kernel_representation::create_kernel_splines(double omega_lim,
         init_xarr(0.0, log(wmax), &lw[0], np, 0, 0);
         lP[0]=log(P0);
         for(int i=1; i<np; i++)
-            lP[i]=log(thermal_kernel_all(omega0, omega0*exp(lw[i]), Theta, type));
+            lP[i]=log(K(omega0, omega0*exp(lw[i]), Theta, p));
 
         // setup splines
         update_spline_coeffies_JC(spline_up, np, &lw[0], &lP[0], "P+");
@@ -178,7 +223,7 @@ void Kernel_representation::create_kernel_splines(double omega_lim,
         init_xarr(log(wmin), 0.0, &lw[0], np, 0, 0);
         lP.back()=log(P0);
         for(int i=0; i<np-1; i++)
-            lP[i]=log(thermal_kernel_all(omega0, omega0*exp(lw[i]), Theta, type));
+            lP[i]=log(K(omega0, omega0*exp(lw[i]), Theta, p));
 
         // setup splines
         update_spline_coeffies_JC(spline_down, np, &lw[0], &lP[0], "P-");

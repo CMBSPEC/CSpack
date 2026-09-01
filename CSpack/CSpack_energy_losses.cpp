@@ -1,5 +1,5 @@
 //==================================================================================================
-//  Created by Jens Chluba March 2020.
+// Created by Jens Chluba March 2020.
 //==================================================================================================
 
 #include <gsl/gsl_sf_bessel.h>
@@ -20,7 +20,7 @@ namespace CSpack_energy_losses {
 
 //==================================================================================================
 //
-//  losses of photon scattering off thermal electrons with ambient blackbody radiation (Tg=Te)
+// losses of photon scattering off thermal electrons with ambient blackbody radiation (Tg=Te)
 //
 //==================================================================================================
 // d(ln rho_h)/dtau == Sigma_1^*
@@ -30,7 +30,7 @@ double photon_energy_loss(double omega0, double the, string type, bool stim)
 
 //==================================================================================================
 //
-//  losses of electron scattering off ambient blackbody radiation at temperature Tg
+// losses of electron scattering off ambient blackbody radiation at temperature Tg
 //
 //==================================================================================================
 

@@ -1,6 +1,6 @@
 //==================================================================================================
-//  Created by Abir Sarkar on 15/11/2019 and modified by JC. These functions are based on
-//  Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
+// Created by Abir Sarkar on 15/11/2019 and modified by JC. These functions are based on
+// Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
 //==================================================================================================
 
 #ifndef CSpack_kernel_moments_h
@@ -15,7 +15,7 @@ using namespace std;
 namespace CSpack_kernel_moments {
 
 //==================================================================================================
-//  MOMENT
+// MOMENT
 //==================================================================================================
 double compute_exact_moments_analytical(double omega0, double p0, int l);
 double compute_nr_moments_analytical(double omega0, double p0, int l);

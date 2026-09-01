@@ -1,5 +1,6 @@
 //==================================================================================================
-//  Created by JC in March 2020.
+// Created by JC in March 2020.
+// Last modified: Sept 2026 [JC+Codex]
 //==================================================================================================
 
 #ifndef CSpack_kernel_representation_h
@@ -8,7 +9,31 @@
 #include <string>
 #include <vector>
 
+#include "CSpack_kernels.h"
+
 using namespace std;
+
+//==================================================================================================
+// Generic thermal kernel interface used by Kernel_representation. The last argument can point to
+// kernel-specific parameters, which lets the same spline machinery handle photons, FD-averaged
+// neutrinos, or another thermal kernel without changing the representation class.
+//==================================================================================================
+typedef double (*thermal_kernel_ptr)(double, double, double, void *);
+
+//==================================================================================================
+// Parameter block for the FD-averaged neutrino wrapper below.
+//==================================================================================================
+struct Kernel_representation_nu_params
+{
+    double mue;
+    kernel_ptr K;
+    int add_FB;
+
+    Kernel_representation_nu_params(){ mue=0.0; K=NULL; add_FB=0; }
+};
+
+double thermal_kernel_photon_KR(double omega0, double omega, double theta, void *p);
+double thermal_kernel_neutrino_KR(double omega0, double omega, double theta, void *p);
 
 //==================================================================================================
 class Kernel_representation
@@ -22,7 +47,8 @@ private:
     vector<double> Moments;
     double G, H;
 
-    void create_kernel_splines(double omega_lim, double eps_thresh, int np, string type);
+    void create_kernel_splines(double omega_lim, double eps_thresh, int np,
+                               thermal_kernel_ptr K, void *p);
     double compute_moment(int k, bool stim);
     double compute_G(bool stim);
     double compute_H(bool stim);
@@ -33,6 +59,14 @@ public:
     //==============================================================================================
     ~Kernel_representation();
     Kernel_representation();
+
+    // Generic constructor/init use a caller-supplied thermal kernel. The following photon-only
+    // overloads are kept for backward compatibility and call the generic version internally.
+    Kernel_representation(double omin, double om0, double omax, int np,
+                          double The,
+                          double eps_thresh, double eps_interpol,
+                          thermal_kernel_ptr K, void *p,
+                          int maxMom=0, bool stim=0);
     Kernel_representation(double omin, double om0, double omax, int np,
                           double The,
                           double eps_thresh, double eps_interpol,
@@ -43,6 +77,10 @@ public:
     //==============================================================================================
     void allocate_splines(int np);
 
+    void init(double omin, double om0, double omax, int np, double The,
+              double eps_thresh, double eps_interpol,
+              thermal_kernel_ptr K, void *p,
+              int maxMom=0, bool stim=0);
     void init(double omin, double om0, double omax, int np, double The,
               double eps_thresh, double eps_interpol, int maxMom=0, bool stim=0);
 

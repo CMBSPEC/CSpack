@@ -1,6 +1,10 @@
 //==================================================================================================
-//  Created by Abir Sarkar on 15/11/2019 and modified by JC. These functions are based on
-//  Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
+// Created by Abir Sarkar on 15/11/2019 and modified by JC.
+// Last modified: Sept 2026 [JC+Codex]
+// These functions are based on Sarkar, Chluba and Lee, MNRAS, 2019
+// (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
+// and Chluba, Cyr, Uwabo-Niibo and Yamaguchi, JCAP, 2026
+// (https://ui.adsabs.harvard.edu/abs/2026arXiv260725436C/abstract)
 //==================================================================================================
 
 #include "routines.h"
@@ -209,6 +213,13 @@ double thermal_kernel_all(double omega0, double omega, double theta, string type
 {
     if(type=="SS_K") return PK_Kernel(omega0/const_h_mec2, omega/const_h_mec2, theta)/const_h_mec2;
     else if(type=="SS_C") return P_Compton(omega0/const_h_mec2, omega/const_h_mec2, theta)/const_h_mec2;
+    else if(type=="exact+SS_C")
+    {
+        if(omega0<1.0e-4 && theta<1.0e-4)
+            return P_Compton(omega0/const_h_mec2, omega/const_h_mec2, theta)/const_h_mec2;
+
+        type="exact";
+    }
 
     double epsrel=1.0e-9, epsabs=1.0e-100;
     double pmax = sqrt( (theta*log(1.0e-30) - 2.0)*theta*log(1.0e-30) );
@@ -263,6 +274,11 @@ double thermal_kernel_ur(double omega0, double omega, double theta)
     return thermal_kernel_all(omega0, omega, theta, "ur");
 }
 
+double thermal_kernel_exact_SS_C(double omega0, double omega, double theta)
+{
+    return thermal_kernel_all(omega0, omega, theta, "exact+SS_C");
+}
+
 //==================================================================================================
 // kernels from Sazonov & Sunyaev 2000
 //==================================================================================================
@@ -274,6 +290,20 @@ double thermal_kernel_SS_K(double omega0, double omega, double theta)
 double thermal_kernel_SS_C(double omega0, double omega, double theta)
 {
     return thermal_kernel_all(omega0, omega, theta, "SS_C");
+}
+
+thermal_kernel_photon_ptr Get_thermal_kernel_pointer(string type, string calling_func)
+{
+    if(type=="exact") return thermal_kernel_exact;
+    else if(type=="exact+SS_C") return thermal_kernel_exact_SS_C;
+    else if(type=="recoil") return thermal_kernel_recoil;
+    else if(type=="doppler") return thermal_kernel_doppler;
+    else if(type=="ur") return thermal_kernel_ur;
+    else if(type=="SS_K") return thermal_kernel_SS_K;
+    else if(type=="SS_C") return thermal_kernel_SS_C;
+    else throw_error(calling_func, "choose type 'exact', 'exact+SS_C', 'recoil', 'doppler', 'ur', 'SS_K', 'SS_C'", 1);
+
+    return NULL;
 }
 
 }
@@ -456,6 +486,20 @@ double kernel_exact_nutau_e(double omega1, double p2, double omega3)
 
 double kernel_exact_nutau_p(double omega1, double p2, double omega3)
 { return kernel_exact_numu_p(omega1, p2, omega3); }
+
+kernel_ptr Get_neutrino_kernel_pointer(string type, string calling_func)
+{
+    if(type=="nue_e") return kernel_exact_nue_e;
+    else if(type=="nue_p") return kernel_exact_nue_p;
+    else if(type=="nue_ep") return kernel_exact_nue_ep;
+    else if(type=="numu_e") return kernel_exact_numu_e;
+    else if(type=="numu_p") return kernel_exact_numu_p;
+    else if(type=="nutau_e") return kernel_exact_nutau_e;
+    else if(type=="nutau_p") return kernel_exact_nutau_p;
+    else throw_error(calling_func, "choose type 'nue_e', 'nue_p', 'nue_ep', 'numu_e', 'numu_p', 'nutau_e', 'nutau_p'", 1);
+
+    return NULL;
+}
 
 }
 

@@ -1,6 +1,8 @@
 //==================================================================================================
-//  Created by Abir Sarkar on 15/11/2019 and modified by JC. These functions are based on
-//  Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
+// Created by Abir Sarkar on 15/11/2019 and modified by JC.
+// Last modified: Sept 2026 [JC+Codex]
+// These functions are based on Sarkar, Chluba and Lee, MNRAS, 2019
+// (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
 //==================================================================================================
 
 #include "routines.h"
@@ -41,6 +43,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                const vector<double> &Int_wi, int nK,
                                vector<vector<double> > &Msc,
                                vector<Kernel_representation> &KR,
+                               thermal_kernel_ptr K, void *p,
                                double epsilon, bool stim)
 {
     if(verbosity_scat_matrix>0)
@@ -65,7 +68,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
 #pragma omp parallel for default(shared) schedule(dynamic)
 #endif
     for(int i=0; i<npx; i++)
-        KR[i].init(omin, xarr[i]*theta, omax, nK, theta, epsilon, epsilon, -1, stim);
+        KR[i].init(omin, xarr[i]*theta, omax, nK, theta, epsilon, epsilon, K, p, -1, stim);
 #ifdef OPENMP_ACTIVATED
 #pragma omp barrier
 #endif
@@ -110,6 +113,19 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         cout << " compute_scattering_matrix :: done." << endl << endl;
 }
 
+void compute_scattering_matrix(const vector<double> &xarr, double theta,
+                               const vector<double> &Int_wi, int nK,
+                               vector<vector<double> > &Msc,
+                               vector<Kernel_representation> &KR,
+                               double epsilon, bool stim)
+{
+    string type="exact";
+    compute_scattering_matrix(xarr, theta, Int_wi, nK, Msc, KR,
+                              thermal_kernel_photon_KR, &type, epsilon, stim);
+
+    return;
+}
+
 //==================================================================================================
 // Routines for scattering matrix setups
 //--------------------------------------------------------------------------------------------------
@@ -120,7 +136,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
 //
 // outputs: Msc = wj Pij theta
 //
-// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
+// type   : type of kernel to be used explicitly ['exact', 'exact+SS_C', 'recoil', 'doppler', 'ur', 'SS_K', 'SS_C']
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
 //==================================================================================================
 void compute_scattering_matrix(const vector<double> &xarr, double theta,
@@ -133,13 +149,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         cout << " compute_scattering_matrix :: setting up scattering matrix for The= " << theta << endl;
 
     int npx=xarr.size();
-
-    double (*kernel)(double omega0, double omega, double theta)=NULL;
-
-    if(type=="exact") kernel=thermal_kernel_exact;
-    else if(type=="SS_K") kernel=thermal_kernel_SS_K;
-    else if(type=="SS_C") kernel=thermal_kernel_SS_C;
-    else throw_error("compute_scattering_matrix", "kernel type not available", 1);
+    thermal_kernel_photon_ptr kernel=Get_thermal_kernel_pointer(type, "compute_scattering_matrix");
 
     // create matrix
     if((int)Msc.size()!=npx)
@@ -158,13 +168,6 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
         for(int j=0; j<npx; j++) Msc[i][j]=0.0;
 
         double om0=xarr[i]*theta, omp=xarr[i]*theta;
-
-        // avoid errors at low energies using exact expressions
-        if(type=="exact")
-        {
-            if(om0<1.0e-4 && theta<1.0e-4) kernel=thermal_kernel_SS_C;
-            else kernel=thermal_kernel_exact;
-        }
 
         // diagonal element for reference
         Msc[i][i]= Int_wi[i] * theta * kernel(om0, omp, theta);
@@ -204,7 +207,7 @@ struct Integral_Mij_bin_average
 {
     Kernel_representation *KR;
     bool add_stim;
-    double x0, om0, theta, theta_g;
+    double x0, theta_g;
 
     Integral_Mij_bin_average()
     {
@@ -222,18 +225,13 @@ double Kernel_weight_func(double x, void *p) // x == hnu/kTg == om/theta_g
 
     double om=x*IM.theta_g;
     double stim=(IM.add_stim ? one_minus_exp_mx(IM.x0)/one_minus_exp_mx(x) : 1.0);
-
-    double K=0.0;
-    if(IM.om0<1.0e-4 && IM.theta<1.0e-4) K=thermal_kernel_SS_C(IM.om0, om, IM.theta);
-    else K=IM.KR->Kernel(om);
-    //else K=thermal_kernel_exact(IM.om0, om, IM.theta);
-    //K=IM.KR->Kernel(om);
+    double K=IM.KR->Kernel(om);
 
     return K * stim * IM.theta_g; // domp = theta_g dx --> factor of theta_g
 }
 
 void fill_Msc_bin_averaged_II(int i, int j, const vector<double> &xarr,
-                              double theta, double theta_g,
+                              double theta_g,
                               vector<vector<double> > &Msc,
                               vector<Kernel_representation> &KR,
                               bool add_stim=0)
@@ -242,8 +240,6 @@ void fill_Msc_bin_averaged_II(int i, int j, const vector<double> &xarr,
     IM.KR=&KR[i];
     IM.add_stim=add_stim;
     IM.x0 =xarr[i];
-    IM.om0=IM.x0*theta_g;
-    IM.theta  =theta;
     IM.theta_g=theta_g;
 
     //--------------------------------------------------------------------------
@@ -265,16 +261,15 @@ void fill_Msc_bin_averaged_II(int i, int j, const vector<double> &xarr,
 //
 // outputs: Msc = int Pij dxj_bin * theta_g
 //
-// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
+// K, p   : thermal kernel evaluator and parameters
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
-// add_stim: optional parameter to add stimulated scattering effect in blackbody radiation field
 //==================================================================================================
-void compute_scattering_matrix_bin_averaged_II(const vector<double> &xarr,
-                                               double theta, double theta_g,
-                                               vector<vector<double> > &Msc,
-                                               vector<Kernel_representation> &KR,
-                                               string type,
-                                               double epsilon, bool add_stim)
+void compute_scattering_matrix_bin_averaged_II_kernel(const vector<double> &xarr,
+                                                      double theta, double theta_g,
+                                                      vector<vector<double> > &Msc,
+                                                      vector<Kernel_representation> &KR,
+                                                      thermal_kernel_ptr K, void *p,
+                                                      double epsilon, bool add_stim)
 {
     string funcname="compute_scattering_matrix_bin_averaged";
     if(verbosity_scat_matrix>0)
@@ -303,7 +298,7 @@ void compute_scattering_matrix_bin_averaged_II(const vector<double> &xarr,
 #pragma omp parallel for default(shared) schedule(dynamic)
 #endif
     for(int i=0; i<npx; i++)
-        KR[i].init(omin, xarr[i]*theta_g, omax, nK, theta, epsilon/2.0, epsilon/2.0, -1, 0);
+        KR[i].init(omin, xarr[i]*theta_g, omax, nK, theta, epsilon/2.0, epsilon/2.0, K, p, -1, 0);
 #ifdef OPENMP_ACTIVATED
 #pragma omp barrier
 #endif
@@ -317,18 +312,18 @@ void compute_scattering_matrix_bin_averaged_II(const vector<double> &xarr,
         for(int j=0; j<npx; j++) Msc[i][j]=0.0;
 
         // diagonal element for reference
-        fill_Msc_bin_averaged_II(i, i, xarr, theta, theta_g, Msc, KR, add_stim);
+        fill_Msc_bin_averaged_II(i, i, xarr, theta_g, Msc, KR, add_stim);
 
         for(int j=i+1; j<npx; j++) //xp>x
         {
-            fill_Msc_bin_averaged_II(i, j, xarr, theta, theta_g, Msc, KR, add_stim);
+            fill_Msc_bin_averaged_II(i, j, xarr, theta_g, Msc, KR, add_stim);
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }
 
         for(int j=i-1; j>=0; j--) //xp<x
         {
-            fill_Msc_bin_averaged_II(i, j, xarr, theta, theta_g, Msc, KR, add_stim);
+            fill_Msc_bin_averaged_II(i, j, xarr, theta_g, Msc, KR, add_stim);
 
             if(abs(Msc[i][j]/Msc[i][i])<epsilon) break;
         }
@@ -341,6 +336,68 @@ void compute_scattering_matrix_bin_averaged_II(const vector<double> &xarr,
         cout << " " + funcname + " :: done." << endl << endl;
 }
 
+void compute_scattering_matrix_bin_averaged_II(const vector<double> &xarr,
+                                               double theta, double theta_g,
+                                               vector<vector<double> > &Msc,
+                                               vector<Kernel_representation> &KR,
+                                               thermal_kernel_ptr K, void *p,
+                                               double epsilon)
+{
+    compute_scattering_matrix_bin_averaged_II_kernel(xarr, theta, theta_g, Msc, KR,
+                                                     K, p, epsilon, 0);
+
+    return;
+}
+
+void compute_scattering_matrix_bin_averaged_II(const vector<double> &xarr,
+                                               double theta, double theta_g,
+                                               vector<vector<double> > &Msc,
+                                               vector<Kernel_representation> &KR,
+                                               string type,
+                                               double epsilon, bool add_stim)
+{
+    compute_scattering_matrix_bin_averaged_II_kernel(xarr, theta, theta_g, Msc, KR,
+                                                     thermal_kernel_photon_KR, &type,
+                                                     epsilon, add_stim);
+
+    return;
+}
+
+void compute_scattering_matrix_neutrino_bin_averaged_II(const vector<double> &xarr,
+                                                        double theta, double theta_g,
+                                                        vector<vector<double> > &Msc,
+                                                        vector<Kernel_representation> &KR,
+                                                        kernel_ptr K,
+                                                        double mue, int add_FB,
+                                                        double epsilon)
+{
+    Kernel_representation_nu_params p;
+    p.mue=mue; p.K=K; p.add_FB=add_FB;
+
+    compute_scattering_matrix_bin_averaged_II(xarr, theta, theta_g, Msc, KR,
+                                              thermal_kernel_neutrino_KR, &p,
+                                              epsilon);
+
+    return;
+}
+
+void compute_scattering_matrix_neutrino_bin_averaged_II(const vector<double> &xarr,
+                                                        double theta, double theta_g,
+                                                        vector<vector<double> > &Msc,
+                                                        vector<Kernel_representation> &KR,
+                                                        string type,
+                                                        double mue, int add_FB,
+                                                        double epsilon)
+{
+    kernel_ptr K=CSpack_kernels_nu::Get_neutrino_kernel_pointer
+                 (type, "compute_scattering_matrix_neutrino_bin_averaged_II");
+
+    compute_scattering_matrix_neutrino_bin_averaged_II(xarr, theta, theta_g, Msc, KR,
+                                                       K, mue, add_FB, epsilon);
+
+    return;
+}
+
 //==================================================================================================
 //
 // old versions
@@ -351,7 +408,7 @@ struct Integral_Info_Mij
     int i, k; // k== 0, 1
     const vector<double> *xa;
     double theta, om0, theta_g;
-    double (*kernel)(double omega0, double omega, double theta);
+    thermal_kernel_photon_ptr kernel;
     Kernel_representation *KR;
     bool add_stim;
 
@@ -405,7 +462,7 @@ double dMij_bin_averaged(double om, void *p)
 
 double Mij_bin_averaged(int i, int k, const vector<double> &xa,
                         double om0, double oml, double omp, double omu, double theta,
-                        double (*kernel)(double omega0, double omega, double theta),
+                        thermal_kernel_photon_ptr kernel,
                         bool add_stim=0)
 {
     Integral_Info_Mij d;
@@ -486,7 +543,7 @@ double Mij_bin_averaged(int i, int k, const vector<double> &xa,
 
 void fill_Msc_bin_averaged(int i, int j, const vector<double> &xarr, double theta,
                            vector<vector<double> > &Msc,
-                           double (*kernel)(double omega0, double omega, double theta),
+                           thermal_kernel_photon_ptr kernel,
                            bool add_stim=0)
 {
     double om0=xarr[i]*theta, oml, omp=xarr[j]*theta, omu;
@@ -537,7 +594,7 @@ void fill_Msc_bin_averaged(int i, int j, const vector<double> &xarr, double thet
 //
 // outputs: Msc = int Pij dxj_bin * theta
 //
-// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
+// type   : type of kernel to be used explicitly ['exact', 'exact+SS_C', 'recoil', 'doppler', 'ur', 'SS_K', 'SS_C']
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
 // add_stim: optional parameter to add stimulated scattering effect in blackbody radiation field
 //==================================================================================================
@@ -552,12 +609,6 @@ void compute_scattering_matrix_bin_averaged(const vector<double> &xarr, double t
         cout << " " + funcname + " :: setting up scattering matrix for The= " << theta << endl;
 
     int npx=xarr.size();
-
-//    double (*kernel)(double omega0, double omega, double theta)=NULL;
-//    if(type=="exact") kernel=thermal_kernel_exact;
-//    else if(type=="SS_K") kernel=thermal_kernel_SS_K;
-//    else if(type=="SS_C") kernel=thermal_kernel_SS_C;
-//    else throw_error(funcname, "kernel type not available", 1);
 
     // create matrix
     if((int)Msc.size()!=npx)
@@ -577,7 +628,8 @@ void compute_scattering_matrix_bin_averaged(const vector<double> &xarr, double t
 #pragma omp parallel for default(shared) schedule(dynamic)
 #endif
     for(int i=0; i<npx; i++)
-        KR[i].init(omin, xarr[i]*theta, omax, nK, theta, epsilon, epsilon, -1, 0);
+        KR[i].init(omin, xarr[i]*theta, omax, nK, theta, epsilon, epsilon,
+                   thermal_kernel_photon_KR, &type, -1, 0);
 #ifdef OPENMP_ACTIVATED
 #pragma omp barrier
 #endif
@@ -689,9 +741,7 @@ void Msc_representation::init_serial(const vector<double> &xearr,
     this->The=The;
     this->eps_thresh=eps_thresh;
 
-    double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_exact;
-    //double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_SS_K;
-    //double (*kernel)(double omega0, double omega, double theta)=thermal_kernel_SS_C;
+    thermal_kernel_photon_ptr kernel=Get_thermal_kernel_pointer("exact", "Msc_representation::init_serial");
 
     // create matrix
     int npx=xearr.size();

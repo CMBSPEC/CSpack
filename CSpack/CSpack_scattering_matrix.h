@@ -1,6 +1,8 @@
 //==================================================================================================
-//  Created by Abir Sarkar on 15/11/2019 and modified by JC. These functions are based on
-//  Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
+// Created by Abir Sarkar on 15/11/2019 and modified by JC.
+// Last modified: Sept 2026 [JC+Codex]
+// These functions are based on Sarkar, Chluba and Lee, MNRAS, 2019
+// (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
 //==================================================================================================
 
 #ifndef CSpack_scattering_matrix_h
@@ -34,6 +36,16 @@ void set_verbosity(int verb=0);
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
 // stim   : include stimulated factors from blackbody in moments
 //==================================================================================================
+// Generic Kernel_representation setup. The thermal kernel can be a photon wrapper, neutrino wrapper
+// or any other function matching thermal_kernel_ptr.
+void compute_scattering_matrix(const vector<double> &xarr, double theta,
+                               const vector<double> &Int_wi, int nK,
+                               vector<vector<double> > &Msc,
+                               vector<Kernel_representation> &KR,
+                               thermal_kernel_ptr K, void *p,
+                               double epsilon=1.0e-40, bool stim=0);
+
+// Photon-compatible wrapper using the default exact kernel representation.
 void compute_scattering_matrix(const vector<double> &xarr, double theta,
                                const vector<double> &Int_wi, int nK,
                                vector<vector<double> > &Msc,
@@ -50,7 +62,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
 //
 // outputs: Msc = wj Pij theta
 //
-// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
+// type   : type of kernel to be used explicitly ['exact', 'exact+SS_C', 'recoil', 'doppler', 'ur', 'SS_K', 'SS_C']
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
 //==================================================================================================
 void compute_scattering_matrix(const vector<double> &xarr, double theta,
@@ -68,7 +80,7 @@ void compute_scattering_matrix(const vector<double> &xarr, double theta,
 //
 // outputs: Msc = int Pij dxj_bin * theta
 //
-// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
+// type   : type of kernel to be used explicitly ['exact', 'exact+SS_C', 'recoil', 'doppler', 'ur', 'SS_K', 'SS_C']
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
 // add_stim: optional parameter to add stimulated scattering effect in blackbody radiation field
 //==================================================================================================
@@ -88,16 +100,55 @@ void compute_scattering_matrix_bin_averaged(const vector<double> &xarr, double t
 //
 // outputs: Msc = int Pij dxj_bin * theta_g
 //
-// type   : type of kernel to be used explicitly ['exact', 'SS_K', 'SS_C']
+// type   : type of photon kernel to be used explicitly ['exact', 'exact+SS_C', 'recoil', 'doppler', 'ur', 'SS_K', 'SS_C']
+// K, p   : generic thermal kernel evaluator and parameters
 // epsilon: optional parameter to compress matrix density [eps<1.0e-4 recommended]
 // add_stim: optional parameter to add stimulated scattering effect in blackbody radiation field
 //==================================================================================================
+// Generic bin-averaged setup. Photon/neutrino details enter only through the supplied thermal kernel.
+void compute_scattering_matrix_bin_averaged_II(const vector<double> &xarr,
+                                               double theta, double theta_g,
+                                               vector<vector<double> > &Msc,
+                                               vector<Kernel_representation> &KR,
+                                               thermal_kernel_ptr K, void *p,
+                                               double epsilon);
+
+// Photon wrapper. Use type="exact+SS_C" when the low-energy SS_C replacement is desired.
 void compute_scattering_matrix_bin_averaged_II(const vector<double> &xarr,
                                                double theta, double theta_g,
                                                vector<vector<double> > &Msc,
                                                vector<Kernel_representation> &KR,
                                                string type,
                                                double epsilon, bool add_stim=0);
+
+//==================================================================================================
+// Routines for neutrino scattering matrix setups using FD-averaged kernels
+//--------------------------------------------------------------------------------------------------
+// inputs:
+// xarr    : contains frequency grid points x=omega/theta_g
+// theta   : scatterer temperature in m_e c^2 units
+// theta_g : grid temperature scale in m_e c^2 units
+// K/type  : neutrino scattering kernel ['nue_e', 'nue_p', 'nue_ep', 'numu_e', 'numu_p',
+//           'nutau_e', 'nutau_p']
+// mue     : chemical potential for the FD scatterer distribution
+// add_FB  : final-state factors in thermal_kernel_FD [0: none, 1: e blocking,
+//           2: e and nu blocking, 3: e blocking and photon stimulation]
+//==================================================================================================
+void compute_scattering_matrix_neutrino_bin_averaged_II(const vector<double> &xarr,
+                                                        double theta, double theta_g,
+                                                        vector<vector<double> > &Msc,
+                                                        vector<Kernel_representation> &KR,
+                                                        kernel_ptr K,
+                                                        double mue=0.0, int add_FB=0,
+                                                        double epsilon=1.0e-40);
+
+void compute_scattering_matrix_neutrino_bin_averaged_II(const vector<double> &xarr,
+                                                        double theta, double theta_g,
+                                                        vector<vector<double> > &Msc,
+                                                        vector<Kernel_representation> &KR,
+                                                        string type="nue_ep",
+                                                        double mue=0.0, int add_FB=0,
+                                                        double epsilon=1.0e-40);
 
 //==================================================================================================
 // total cross section
