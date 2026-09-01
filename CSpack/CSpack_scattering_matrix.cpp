@@ -696,6 +696,7 @@ void Msc_representation::init_serial(const vector<double> &xearr,
     // create matrix
     int npx=xearr.size();
     vector<double> Msc_rows(npx); // rows of matrix;
+    Msc_sparse.clear();
 
     for(int i=0; i<npx; i++) //x
     {
@@ -769,6 +770,7 @@ void Msc_representation::init(const vector<double> &xearr,
     CSpack_scattering_matrix::compute_scattering_matrix(xearr, The, Int_wi, Msc_full, "exact", eps_thresh);
 
     // saving step
+    Msc_sparse.clear();
     for(int i=0; i<npx; i++)
         for(int j=0; j<npx; j++)
             if(Msc_full[i][j]!=0.0) Msc_sparse.save_info(npx, i, j, Msc_full[i][j]);
@@ -880,6 +882,7 @@ void Msc_representation_Te :: init(const vector<double> &xearr,
 {
     this->The_min=The_min;
     this->The_max=The_max;
+    this->The_curr=0.0;
     this->logdens_The=logdens_The;
     this->eps_interpol=eps_interpol;
     this->npx=xearr.size();

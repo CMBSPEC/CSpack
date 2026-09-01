@@ -3,8 +3,12 @@
 //  Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
 //==================================================================================================
 
-#ifndef cspack_h
-#define cspack_h
+#ifndef cspack_c_h
+#define cspack_c_h
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //==================================================================================================
 // available C functions
@@ -66,6 +70,11 @@ void compute_scattering_matrix_explicit(const double *xarr, const double *Int_wi
 void compute_scattering_matrix_KR(const double *xarr, const double *Int_wi, int npointsx,
                                   int nK, double theta, double epsilon,
                                   double **Msc);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
 
 //==================================================================================================
