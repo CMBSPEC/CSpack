@@ -436,10 +436,16 @@ double kernel_exact(double omega1, double p2, double omega3,
 }
 
 //==================================================================================================
+double alpha_norm_nu(double gL, double gR)
+{
+    return gL*gL+gR*gR-gL*gR;
+}
+
+//==================================================================================================
 double kernel_exact_nue_e(double omega1, double p2, double omega3)
 {
     double gL=0.731, gR=0.231;
-    double alpha_norm=gL*gL+gR*gR-gL*gR;
+    double alpha_norm=alpha_norm_nu(gL, gR);
     double alpha_LR=gL*gR/alpha_norm;
     double beta_LR=gR*gR/alpha_norm;
 
@@ -449,7 +455,7 @@ double kernel_exact_nue_e(double omega1, double p2, double omega3)
 double kernel_exact_nue_p(double omega1, double p2, double omega3)
 {
     double gR=0.731, gL=0.231;
-    double alpha_norm=gL*gL+gR*gR-gL*gR;
+    double alpha_norm=alpha_norm_nu(gL, gR);
     double alpha_LR=gL*gR/alpha_norm;
     double beta_LR=gR*gR/alpha_norm;
 
@@ -464,7 +470,7 @@ double kernel_exact_nue_ep(double omega1, double p2, double omega3)
 double kernel_exact_numu_e(double omega1, double p2, double omega3)
 {
     double gL=-0.269, gR=0.231;
-    double alpha_norm=gL*gL+gR*gR-gL*gR;
+    double alpha_norm=alpha_norm_nu(gL, gR);
     double alpha_LR=gL*gR/alpha_norm;
     double beta_LR=gR*gR/alpha_norm;
 
@@ -474,7 +480,7 @@ double kernel_exact_numu_e(double omega1, double p2, double omega3)
 double kernel_exact_numu_p(double omega1, double p2, double omega3)
 {
     double gR=-0.269, gL=0.231;
-    double alpha_norm=gL*gL+gR*gR-gL*gR;
+    double alpha_norm=alpha_norm_nu(gL, gR);
     double alpha_LR=gL*gR/alpha_norm;
     double beta_LR=gR*gR/alpha_norm;
 
@@ -499,6 +505,19 @@ kernel_ptr Get_neutrino_kernel_pointer(string type, string calling_func)
     else throw_error(calling_func, "choose type 'nue_e', 'nue_p', 'nue_ep', 'numu_e', 'numu_p', 'nutau_e', 'nutau_p'", 1);
 
     return NULL;
+}
+
+double Get_neutrino_kernel_norm(string type, string calling_func)
+{
+    double norm_nue=alpha_norm_nu(0.731, 0.231);
+    double norm_numu=alpha_norm_nu(-0.269, 0.231);
+
+    if(type=="nue_e" || type=="nue_p" || type=="nue_ep") return 1.0;
+    else if(type=="numu_e" || type=="numu_p" || type=="nutau_e" || type=="nutau_p")
+        return norm_numu/norm_nue;
+    else throw_error(calling_func, "choose type 'nue_e', 'nue_p', 'nue_ep', 'numu_e', 'numu_p', 'nutau_e', 'nutau_p'", 1);
+
+    return 1.0;
 }
 
 }

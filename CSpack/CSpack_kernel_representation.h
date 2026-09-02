@@ -21,15 +21,17 @@ using namespace std;
 typedef double (*thermal_kernel_ptr)(double, double, double, void *);
 
 //==================================================================================================
-// Parameter block for the FD-averaged neutrino wrapper below.
+// Parameter block for the FD-averaged neutrino wrapper below. The kernel itself stores the
+// redistribution shape; sigma_norm*x0^2 applies the neutrino cross-section normalization relative to
+// Thomson scattering, with x0=omega0/theta_g.
 //==================================================================================================
 struct Kernel_representation_nu_params
 {
-    double mue;
+    double mue, theta_g, sigma_norm;
     kernel_ptr K;
     int add_FB;
 
-    Kernel_representation_nu_params(){ mue=0.0; K=NULL; add_FB=0; }
+    Kernel_representation_nu_params(){ mue=0.0; theta_g=0.0; sigma_norm=1.0; K=NULL; add_FB=0; }
 };
 
 double thermal_kernel_photon_KR(double omega0, double omega, double theta, void *p);

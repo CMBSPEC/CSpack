@@ -369,10 +369,11 @@ void compute_scattering_matrix_neutrino_bin_averaged_II(const vector<double> &xa
                                                         vector<Kernel_representation> &KR,
                                                         kernel_ptr K,
                                                         double mue, int add_FB,
-                                                        double epsilon)
+                                                        double epsilon,
+                                                        double sigma_norm)
 {
     Kernel_representation_nu_params p;
-    p.mue=mue; p.K=K; p.add_FB=add_FB;
+    p.mue=mue; p.theta_g=theta_g; p.sigma_norm=sigma_norm; p.K=K; p.add_FB=add_FB;
 
     compute_scattering_matrix_bin_averaged_II(xarr, theta, theta_g, Msc, KR,
                                               thermal_kernel_neutrino_KR, &p,
@@ -387,13 +388,16 @@ void compute_scattering_matrix_neutrino_bin_averaged_II(const vector<double> &xa
                                                         vector<Kernel_representation> &KR,
                                                         string type,
                                                         double mue, int add_FB,
-                                                        double epsilon)
+                                                        double epsilon,
+                                                        double sigma_norm)
 {
     kernel_ptr K=CSpack_kernels_nu::Get_neutrino_kernel_pointer
                  (type, "compute_scattering_matrix_neutrino_bin_averaged_II");
+    sigma_norm*=CSpack_kernels_nu::Get_neutrino_kernel_norm
+                (type, "compute_scattering_matrix_neutrino_bin_averaged_II");
 
     compute_scattering_matrix_neutrino_bin_averaged_II(xarr, theta, theta_g, Msc, KR,
-                                                       K, mue, add_FB, epsilon);
+                                                       K, mue, add_FB, epsilon, sigma_norm);
 
     return;
 }

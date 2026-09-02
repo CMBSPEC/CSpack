@@ -133,6 +133,9 @@ void compute_scattering_matrix_bin_averaged_II(const vector<double> &xarr,
 // mue     : chemical potential for the FD scatterer distribution
 // add_FB  : final-state factors in thermal_kernel_FD [0: none, 1: e blocking,
 //           2: e and nu blocking, 3: e blocking and photon stimulation]
+// sigma_norm: cross-section ratio at x=1 relative to Thomson scattering; the wrapper multiplies
+//             this by x0^2 with x0=omega0/theta_g. For the string version this is interpreted as
+//             the nue_e reference normalization and the relative coupling factor is added internally.
 //==================================================================================================
 void compute_scattering_matrix_neutrino_bin_averaged_II(const vector<double> &xarr,
                                                         double theta, double theta_g,
@@ -140,7 +143,8 @@ void compute_scattering_matrix_neutrino_bin_averaged_II(const vector<double> &xa
                                                         vector<Kernel_representation> &KR,
                                                         kernel_ptr K,
                                                         double mue=0.0, int add_FB=0,
-                                                        double epsilon=1.0e-40);
+                                                        double epsilon=1.0e-40,
+                                                        double sigma_norm=1.0);
 
 void compute_scattering_matrix_neutrino_bin_averaged_II(const vector<double> &xarr,
                                                         double theta, double theta_g,
@@ -148,7 +152,8 @@ void compute_scattering_matrix_neutrino_bin_averaged_II(const vector<double> &xa
                                                         vector<Kernel_representation> &KR,
                                                         string type="nue_ep",
                                                         double mue=0.0, int add_FB=0,
-                                                        double epsilon=1.0e-40);
+                                                        double epsilon=1.0e-40,
+                                                        double sigma_norm=1.0);
 
 //==================================================================================================
 // total cross section

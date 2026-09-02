@@ -79,6 +79,10 @@ double kernel_exact_nutau_p(double omega0, double p0, double omega);
 
 kernel_ptr Get_neutrino_kernel_pointer(string type, string calling_func);
 
+// Coupling normalization relative to nue_e. The low-energy x^2 scaling is applied separately by the
+// thermal neutrino KR wrapper.
+double Get_neutrino_kernel_norm(string type, string calling_func);
+
 };
 
 //==================================================================================================

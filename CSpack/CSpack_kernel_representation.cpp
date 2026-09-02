@@ -32,7 +32,11 @@ double thermal_kernel_neutrino_KR(double omega0, double omega, double theta, voi
     Kernel_representation_nu_params &d=*(Kernel_representation_nu_params *)p;
     if(d.K==NULL) throw_error("thermal_kernel_neutrino_KR", "neutrino kernel not set", 1);
 
-    return CSpack_kernels_FD::thermal_kernel_FD(omega0, omega, theta, d.mue, d.K, d.add_FB);
+    double theta_g=(d.theta_g>0.0 ? d.theta_g : theta);
+    double x0=omega0/theta_g;
+
+    return d.sigma_norm*x0*x0*CSpack_kernels_FD::thermal_kernel_FD(omega0, omega, theta,
+                                                                   d.mue, d.K, d.add_FB);
 }
 
 //==================================================================================================
