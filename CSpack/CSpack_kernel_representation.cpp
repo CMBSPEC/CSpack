@@ -5,6 +5,7 @@
 
 #include <string>
 #include <vector>
+#include <cmath>
 
 #include "routines.h"
 #include "Patterson.h"
@@ -15,6 +16,21 @@ using namespace std;
 using namespace CSpack_functions;
 using namespace CSpack_kernels;
 using namespace CSpack_kernel_moments;
+
+namespace {
+
+double safe_positive_kernel_value(double omega0, double omega, double theta,
+                                  thermal_kernel_ptr K, void *p,
+                                  double floor_value)
+{
+    double P=K(omega0, omega, theta, p);
+
+    if(!std::isfinite(P) || P<=floor_value) return floor_value;
+
+    return P;
+}
+
+}
 
 //==================================================================================================
 double thermal_kernel_photon_KR(double omega0, double omega, double theta, void *p)
@@ -143,7 +159,9 @@ double root_func(double *lw, void *p)
 {
     rootData *d=(rootData *) p;
     double w=exp(*lw);
-    return d->K(d->omega0, d->omega0*w, d->Theta, d->p)/d->P0eps-1.0;
+    double P=d->K(d->omega0, d->omega0*w, d->Theta, d->p);
+    if(!std::isfinite(P) || P<=0.0) return -1.0;
+    return P/d->P0eps-1.0;
 }
 
 double find_root_CS(double (* func)(double *, void *p), void *p,
@@ -175,7 +193,7 @@ void Kernel_representation::create_kernel_splines(double omega_lim,
     // data for generation of splines
     //==============================================================================================
     rootData d;
-    d.P0eps=P0*eps_thresh;
+    d.P0eps=max(P0*eps_thresh, 1.0e-300);
     d.omega0=omega0; d.Theta=Theta;
     d.K=K; d.p=p;
 
@@ -187,9 +205,10 @@ void Kernel_representation::create_kernel_splines(double omega_lim,
 
     double lwstart=0.0, lwlim=log(omega_lim/omega0), lwsig=log(wfac), lwc;
     double P=K(omega0, omega0*exp(lwsig), Theta, p);
+    if(!std::isfinite(P) || P<=0.0) P=0.0;
 
     // added start of search if P==0. This is to avoid that P==0 values are inside the domain
-    if(P<=P0*eps_thresh || P==0.0) lwc=find_root_CS(root_func, &d, lwsig, lwstart, 1.0e-3);
+    if(P<=P0*eps_thresh || P==0.0) lwc=find_root_CS(root_func, &d, lwsig, lwstart, 1.0e-5);
     else
     {
         lwstart=lwsig;
@@ -197,10 +216,11 @@ void Kernel_representation::create_kernel_splines(double omega_lim,
         {
             lwsig*=2.0;
             P=K(omega0, omega0*exp(lwsig), Theta, p);
+            if(!std::isfinite(P) || P<=0.0) P=0.0;
         }
 
         // if w found within range that brackets null --> solve
-        if(P<P0*eps_thresh || P==0.0) lwc=find_root_CS(root_func, &d, lwsig, lwstart, 1.0e-3);
+        if(P<P0*eps_thresh || P==0.0) lwc=find_root_CS(root_func, &d, lwsig, lwstart, 1.0e-5);
         else lwc=lwsig;
     }
 
@@ -217,7 +237,8 @@ void Kernel_representation::create_kernel_splines(double omega_lim,
         init_xarr(0.0, log(wmax), &lw[0], np, 0, 0);
         lP[0]=log(P0);
         for(int i=1; i<np; i++)
-            lP[i]=log(K(omega0, omega0*exp(lw[i]), Theta, p));
+            lP[i]=log(safe_positive_kernel_value(omega0, omega0*exp(lw[i]), Theta,
+                                                 K, p, d.P0eps*1.0e-6));
 
         // setup splines
         update_spline_coeffies_JC(spline_up, np, &lw[0], &lP[0], "P+");
@@ -227,7 +248,8 @@ void Kernel_representation::create_kernel_splines(double omega_lim,
         init_xarr(log(wmin), 0.0, &lw[0], np, 0, 0);
         lP.back()=log(P0);
         for(int i=0; i<np-1; i++)
-            lP[i]=log(K(omega0, omega0*exp(lw[i]), Theta, p));
+            lP[i]=log(safe_positive_kernel_value(omega0, omega0*exp(lw[i]), Theta,
+                                                 K, p, d.P0eps*1.0e-6));
 
         // setup splines
         update_spline_coeffies_JC(spline_down, np, &lw[0], &lP[0], "P-");
@@ -243,8 +265,16 @@ double Kernel_representation::Kernel(double om)
 
     if(w<wmin || w>wmax) return 0.0;
     
-    if(w>1.0 && spline_up  !=-1) return exp(calc_spline_JC(log(w), spline_up  , "P+ interpol"));
-    if(w<1.0 && spline_down!=-1) return exp(calc_spline_JC(log(w), spline_down, "P- interpol"));
+    if(w>1.0 && spline_up  !=-1)
+    {
+        double lP=calc_spline_JC(log(w), spline_up, "P+ interpol");
+        return (std::isfinite(lP) ? exp(lP) : 0.0);
+    }
+    if(w<1.0 && spline_down!=-1)
+    {
+        double lP=calc_spline_JC(log(w), spline_down, "P- interpol");
+        return (std::isfinite(lP) ? exp(lP) : 0.0);
+    }
 
     return P0;
 }
