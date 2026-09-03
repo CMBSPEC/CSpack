@@ -1,6 +1,8 @@
 //==================================================================================================
-// Created by Abir Sarkar on 15/11/2019 and modified by JC. These functions are based on
-// Sarkar, Chluba and Lee, MNRAS, 2019 (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
+// Created by Abir Sarkar on 15/11/2019 and modified by JC.
+// Last modified: Sept 2026 [JC+Codex]
+// These functions are based on Sarkar, Chluba and Lee, MNRAS, 2019
+// (https://ui.adsabs.harvard.edu/abs/2019MNRAS.490.3705S/abstract)
 //==================================================================================================
 
 #ifndef cspack_h
